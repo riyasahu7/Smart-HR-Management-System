@@ -11,4 +11,5 @@ pymongo==4.10.1
 python-dotenv==1.0.1
 openpyxl==3.1.5
 openai==0.28.1
+reportlab==5.0.0
 Werkzeug==3.1.3
