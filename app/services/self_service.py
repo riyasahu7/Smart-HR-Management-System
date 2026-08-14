@@ -122,13 +122,9 @@ def get_attendance_calendar(employee_id, year, month):
 # ── Payslip PDF ───────────────────────────────────────────────────────────────
 
 def generate_payslip_pdf(payroll_id, employee_id):
-    """Generate a simple HTML-to-PDF payslip using weasyprint or reportlab."""
+    """Generate a payslip PDF using fpdf2 (pure Python — works on Vercel)."""
     try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib import colors
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm
+        from fpdf import FPDF
         import io
 
         doc_obj = _pay().find_one({"_id": ObjectId(payroll_id)})
@@ -136,6 +132,110 @@ def generate_payslip_pdf(payroll_id, employee_id):
             return None, "Payroll record not found."
         if doc_obj.get("employee_id") != employee_id:
             return None, "Access denied."
+
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+
+        # ── Header ────────────────────────────────────────────────────────────
+        pdf.set_fill_color(29, 78, 216)   # Blue
+        pdf.rect(0, 0, 210, 28, 'F')
+        pdf.set_font("Helvetica", "B", 18)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(0, 14, "Smart HR Management", ln=True, align="C")
+        pdf.set_font("Helvetica", "", 11)
+        pdf.cell(0, 10, f"PAYSLIP  -  {doc_obj.get('pay_period', '')}", ln=True, align="C")
+        pdf.ln(6)
+
+        # ── Employee Info ─────────────────────────────────────────────────────
+        pdf.set_text_color(30, 41, 59)
+        pdf.set_fill_color(241, 245, 249)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 8, "EMPLOYEE DETAILS", ln=True, fill=True)
+        pdf.set_font("Helvetica", "", 10)
+
+        details = [
+            ("Employee Name", doc_obj.get("employee_name", "-")),
+            ("Department",    doc_obj.get("department", "-")),
+            ("Designation",   doc_obj.get("designation", "-")),
+            ("Pay Period",    doc_obj.get("pay_period", "-")),
+            ("Worked Days",   f"{doc_obj.get('worked_days','-')} / {doc_obj.get('total_days','-')}"),
+        ]
+        for label, value in details:
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.cell(55, 7, label + ":", border="B")
+            pdf.set_font("Helvetica", "", 9)
+            pdf.cell(0, 7, str(value), border="B", ln=True)
+        pdf.ln(5)
+
+        # ── Earnings ──────────────────────────────────────────────────────────
+        allow   = doc_obj.get("allowances", {})
+        deduct  = doc_obj.get("deductions", {})
+        col_w   = 93
+
+        # Headings
+        pdf.set_fill_color(29, 78, 216)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(col_w, 8, "  EARNINGS", fill=True)
+        pdf.cell(7, 8, "")
+        pdf.cell(col_w, 8, "  DEDUCTIONS", fill=True, ln=True)
+
+        pdf.set_text_color(30, 41, 59)
+        pdf.set_font("Helvetica", "", 9)
+
+        earn_rows = [("Basic (Prorated)", doc_obj.get("prorated_basic", 0))]
+        for k, v in allow.items():
+            if v and v > 0:
+                earn_rows.append((k.upper().replace("_", " "), v))
+
+        ded_rows = [(k.upper().replace("_", " "), v)
+                    for k, v in deduct.items() if v and v > 0]
+
+        max_r = max(len(earn_rows), len(ded_rows), 1)
+        fill = False
+        for i in range(max_r):
+            pdf.set_fill_color(248, 250, 252) if fill else pdf.set_fill_color(255, 255, 255)
+            if i < len(earn_rows):
+                pdf.cell(col_w, 7, f"  {earn_rows[i][0]}    Rs.{earn_rows[i][1]:,.2f}", fill=True)
+            else:
+                pdf.cell(col_w, 7, "", fill=True)
+            pdf.cell(7, 7, "")
+            if i < len(ded_rows):
+                pdf.cell(col_w, 7, f"  {ded_rows[i][0]}    Rs.{ded_rows[i][1]:,.2f}", fill=True, ln=True)
+            else:
+                pdf.cell(col_w, 7, "", fill=True, ln=True)
+            fill = not fill
+
+        # Totals row
+        pdf.set_fill_color(226, 232, 240)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.cell(col_w, 8, f"  GROSS SALARY    Rs.{doc_obj.get('gross_salary', 0):,.2f}", fill=True)
+        pdf.cell(7, 8, "")
+        pdf.cell(col_w, 8, f"  TOTAL DEDUCTIONS    Rs.{doc_obj.get('total_deductions', 0):,.2f}", fill=True, ln=True)
+        pdf.ln(5)
+
+        # ── Net Payable ───────────────────────────────────────────────────────
+        pdf.set_fill_color(240, 253, 244)
+        pdf.set_text_color(22, 101, 52)
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 12,
+                 f"  NET PAYABLE:  Rs.{doc_obj.get('net_salary', 0):,.2f}",
+                 fill=True, border=1, ln=True, align="R")
+
+        # ── Footer ────────────────────────────────────────────────────────────
+        pdf.ln(8)
+        pdf.set_text_color(148, 163, 184)
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.cell(0, 6, "This is a system-generated payslip. No signature required.", ln=True, align="C")
+
+        buf = io.BytesIO(pdf.output())
+        return buf, None
+
+    except ImportError:
+        return None, "fpdf2 not installed. Run: pip install fpdf2"
+    except Exception as e:
+        return None, str(e)
 
         buf = io.BytesIO()
         pdf = SimpleDocTemplate(buf, pagesize=A4,

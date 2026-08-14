@@ -1,6 +1,6 @@
 """
 Report service — generate Excel/CSV reports and analytics data.
-Uses openpyxl for Excel export.
+Uses openpyxl for Excel export (optional — skipped if not installed).
 """
 from datetime import datetime
 import io

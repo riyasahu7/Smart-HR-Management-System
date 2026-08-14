@@ -106,10 +106,20 @@ def _render(body):
 
 # ── Feature Emails ────────────────────────────────────────────────────────────
 
+def _app_url():
+    """Return the base URL dynamically — works for both local and Vercel."""
+    import os
+    vercel_url = os.environ.get("VERCEL_URL")  # auto-set by Vercel e.g. smart-hr.vercel.app
+    if vercel_url:
+        return f"https://{vercel_url}"
+    return os.environ.get("APP_URL", "http://localhost:5000")
+
+
 def notify_leave_status(employee_email, employee_name, leave_type,
                         start_date, end_date, days, status, comments=""):
     color = "#10b981" if status == "approved" else "#ef4444"
     icon  = "✅" if status == "approved" else "❌"
+    portal_url = _app_url()
     body = f"""
         <h2 style="color:{color}">{icon} Leave Request {status.title()}</h2>
         <p>Hi <strong>{employee_name}</strong>,</p>
@@ -121,23 +131,24 @@ def notify_leave_status(employee_email, employee_name, leave_type,
           <tr><td style="padding:8px 12px;border:1px solid #e2e8f0"><b>Days</b></td><td style="padding:8px 12px;border:1px solid #e2e8f0">{days}</td></tr>
           {"<tr style='background:#f8fafc'><td style='padding:8px 12px;border:1px solid #e2e8f0'><b>Remarks</b></td><td style='padding:8px 12px;border:1px solid #e2e8f0'>" + comments + "</td></tr>" if comments else ""}
         </table>
-        <a href="http://localhost:5000/leave" style="background:#3b82f6;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:8px">View Leave Portal</a>
+        <a href="{portal_url}/leave" style="background:#3b82f6;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:8px">View Leave Portal</a>
     """
     send_email(employee_email, f"Leave Request {status.title()} — Smart HR", _render(body))
 
 
 def notify_payslip(employee_email, employee_name, month, year,
                    gross, net, pay_period):
+    portal_url = _app_url()
     body = f"""
         <h2 style="color:#3b82f6">💰 Payslip Available — {pay_period}</h2>
         <p>Hi <strong>{employee_name}</strong>,</p>
         <p>Your payslip for <strong>{pay_period}</strong> has been processed and is ready to view.</p>
         <table style="width:100%;border-collapse:collapse;margin:16px 0">
           <tr style="background:#f8fafc"><td style="padding:8px 12px;border:1px solid #e2e8f0"><b>Pay Period</b></td><td style="padding:8px 12px;border:1px solid #e2e8f0">{pay_period}</td></tr>
-          <tr><td style="padding:8px 12px;border:1px solid #e2e8f0"><b>Gross Salary</b></td><td style="padding:8px 12px;border:1px solid #e2e8f0">₹{gross:,.2f}</td></tr>
-          <tr style="background:#f8fafc"><td style="padding:8px 12px;border:1px solid #e2e8f0"><b>Net Payable</b></td><td style="padding:8px 12px;border:1px solid #e2e8f0;color:#10b981;font-weight:bold">₹{net:,.2f}</td></tr>
+          <tr><td style="padding:8px 12px;border:1px solid #e2e8f0"><b>Gross Salary</b></td><td style="padding:8px 12px;border:1px solid #e2e8f0">Rs.{gross:,.2f}</td></tr>
+          <tr style="background:#f8fafc"><td style="padding:8px 12px;border:1px solid #e2e8f0"><b>Net Payable</b></td><td style="padding:8px 12px;border:1px solid #e2e8f0;color:#10b981;font-weight:bold">Rs.{net:,.2f}</td></tr>
         </table>
-        <a href="http://localhost:5000/payroll" style="background:#3b82f6;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:8px">View Payslip</a>
+        <a href="{portal_url}/payroll" style="background:#3b82f6;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:8px">View Payslip</a>
     """
     send_email(employee_email, f"Payslip for {pay_period} — Smart HR", _render(body))
 
