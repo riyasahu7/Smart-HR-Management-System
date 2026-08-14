@@ -12,7 +12,8 @@
           "templates/**",
           "static/**",
           "config.py",
-          "run.py"
+          "run.py",
+          "requirements.txt"
         ]
       }
     }

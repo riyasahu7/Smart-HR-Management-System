@@ -1,3 +1,9 @@
+# Smart HR Management System — Vercel/Production Dependencies
+# openpyxl and openai are intentionally excluded:
+#   - openpyxl: imported inside try/except in report_service.py (Excel export degrades gracefully)
+#   - openai:   imported inside try/except in ai_service.py (falls back to rule-based responses)
+# For local dev with all features: use requirement.txt instead
+
 Flask==3.1.0
 Flask-PyMongo==2.3.0
 Flask-JWT-Extended==4.7.1

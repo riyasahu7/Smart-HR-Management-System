@@ -70,11 +70,12 @@ def _send_async_email(app, msg):
 
 
 def send_email(to, subject, html_body, cc=None):
-    """Send email in a background thread."""
+    """Send email in a background thread. Silently skips if mail is not configured."""
     app = current_app._get_current_object()
-    sender = app.config.get("MAIL_USERNAME") or "noreply@smarthr.com"
+    sender = app.config.get("MAIL_USERNAME", "")
     if not sender:
-        return  # Mail not configured
+        # MAIL_USERNAME not configured — skip silently rather than crash
+        return
 
     msg = Message(subject, sender=sender, recipients=[to] if isinstance(to, str) else to)
     if cc:

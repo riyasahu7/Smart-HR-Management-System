@@ -136,15 +136,22 @@ def upload_profile_photo(employee_id, file):
     if ext not in {"png", "jpg", "jpeg", "webp"}:
         return None, "Only PNG, JPG, JPEG, WEBP allowed for profile photo."
 
-    photos_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        "static", "uploads", "photos"
-    )
+    # Use /tmp on Vercel (read-only filesystem), local static dir otherwise
+    if _is_serverless():
+        photos_dir = "/tmp/smart_hr_photos"
+    else:
+        photos_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "static", "uploads", "photos"
+        )
     os.makedirs(photos_dir, exist_ok=True)
 
     filename = f"photo_{employee_id}.{ext}"
     save_path = os.path.join(photos_dir, filename)
     file.save(save_path)
+
+    # URL: /tmp files aren't web-served, so store a relative path for local
+    # and a placeholder note for serverless (photo feature requires object storage in prod)
     url = f"/static/uploads/photos/{filename}"
 
     _emp_col().update_one(
