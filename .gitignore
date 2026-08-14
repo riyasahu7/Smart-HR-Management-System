@@ -1,4 +1,14 @@
-# Python
+# Test / temp scripts
+verify_vercel.py
+test_*.py
+check_*.py
+fix_*.py
+
+# Render (not needed for Vercel)
+gunicorn.conf.py
+render.yaml
+
+# Byte-compiled
 __pycache__/
 *.py[cod]
 *.pyo
@@ -14,6 +24,7 @@ env/
 .venv/
 .env/
 Smart-HR-Management-System/venv/
+Smart-HR-Management-System/
 
 # Environment / secrets — NEVER commit these
 .env
