@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if mode == 'edit' else 'Add' }} Employee{% endblock %}
+{% block page_title %}{{ 'Edit' if mode == 'edit' else 'Add New' }} Employee{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="card form-card">
+    <div class="card-header">
+      <h3><i class="fa-solid fa-user-tie"></i> Employee Information</h3>
+      <a href="/employees" class="btn btn-outline btn-sm"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    </div>
+
+    <form id="empForm" novalidate>
+      <!-- Section: Personal Info -->
+      <div class="form-section">
+        <h4 class="form-section-title">Personal Information</h4>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>First Name *</label>
+            <input type="text" name="first_name" id="first_name" placeholder="John" required/>
+            <span class="field-error" id="err_first_name"></span>
+          </div>
+          <div class="form-group">
+            <label>Last Name *</label>
+            <input type="text" name="last_name" id="last_name" placeholder="Doe" required/>
+            <span class="field-error" id="err_last_name"></span>
+          </div>
+          <div class="form-group">
+            <label>Email *</label>
+            <input type="email" name="email" id="email" placeholder="john@company.com" required/>
+            <span class="field-error" id="err_email"></span>
+          </div>
+          <div class="form-group">
+            <label>Phone *</label>
+            <input type="text" name="phone" id="phone" placeholder="+91 9876543210" required/>
+            <span class="field-error" id="err_phone"></span>
+          </div>
+          <div class="form-group">
+            <label>Date of Birth</label>
+            <input type="date" name="date_of_birth" id="date_of_birth"/>
+          </div>
+          <div class="form-group">
+            <label>Gender</label>
+            <select name="gender" id="gender">
+              <option value="">Select</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Job Info -->
+      <div class="form-section">
+        <h4 class="form-section-title">Job Details</h4>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Department *</label>
+            <select name="department" id="department" required>
+              <option value="">Select Department</option>
+              <option>Engineering</option><option>Human Resources</option>
+              <option>Finance</option><option>Marketing</option>
+              <option>Sales</option><option>Operations</option>
+              <option>Legal</option><option>Customer Support</option><option>Product</option>
+            </select>
+            <span class="field-error" id="err_department"></span>
+          </div>
+          <div class="form-group">
+            <label>Designation *</label>
+            <input type="text" name="designation" id="designation" placeholder="Software Engineer" required/>
+            <span class="field-error" id="err_designation"></span>
+          </div>
+          <div class="form-group">
+            <label>Employment Type</label>
+            <select name="employment_type" id="employment_type">
+              <option value="full_time">Full Time</option>
+              <option value="part_time">Part Time</option>
+              <option value="contract">Contract</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date of Joining *</label>
+            <input type="date" name="date_of_joining" id="date_of_joining" required/>
+            <span class="field-error" id="err_date_of_joining"></span>
+          </div>
+          <div class="form-group">
+            <label>Basic Salary (₹/month) *</label>
+            <input type="number" name="salary" id="salary" placeholder="50000" min="0" required/>
+            <span class="field-error" id="err_salary"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Address -->
+      <div class="form-section">
+        <h4 class="form-section-title">Address</h4>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label>Street</label>
+            <input type="text" name="address_street" id="address_street" placeholder="123 Main St"/>
+          </div>
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" name="address_city" id="address_city"/>
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input type="text" name="address_state" id="address_state"/>
+          </div>
+          <div class="form-group">
+            <label>PIN Code</label>
+            <input type="text" name="address_pin" id="address_pin"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Bank Details -->
+      <div class="form-section">
+        <h4 class="form-section-title">Bank Details</h4>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Account Number</label>
+            <input type="text" name="bank_account_no" id="bank_account_no"/>
+          </div>
+          <div class="form-group">
+            <label>Bank Name</label>
+            <input type="text" name="bank_name" id="bank_name"/>
+          </div>
+          <div class="form-group">
+            <label>IFSC Code</label>
+            <input type="text" name="bank_ifsc" id="bank_ifsc"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="/employees" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span class="btn-text">{{ 'Save Changes' if mode == 'edit' else 'Create Employee' }}</span>
+          <span class="btn-loader" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+const MODE = '{{ mode }}';
+const EMP_ID = '{{ employee_id | default("") }}';
+
+// If editing, pre-fill
+if (MODE === 'edit' && EMP_ID) {
+  API.get(`/api/employees/${EMP_ID}`).then(data => {
+    if (!data.success) return;
+    const e = data.data;
+    const set = (id, val) => { if (document.getElementById(id)) document.getElementById(id).value = val || ''; };
+    set('first_name', e.first_name); set('last_name', e.last_name);
+    set('email', e.email); set('phone', e.phone);
+    set('date_of_birth', e.date_of_birth ? e.date_of_birth.slice(0,10) : '');
+    set('gender', e.gender); set('department', e.department);
+    set('designation', e.designation); set('employment_type', e.employment_type);
+    set('date_of_joining', e.date_of_joining ? e.date_of_joining.slice(0,10) : '');
+    set('salary', e.salary);
+    if (e.address) {
+      set('address_street', e.address.street); set('address_city', e.address.city);
+      set('address_state', e.address.state); set('address_pin', e.address.pin);
+    }
+    if (e.bank_details) {
+      set('bank_account_no', e.bank_details.account_no);
+      set('bank_name', e.bank_details.bank_name);
+      set('bank_ifsc', e.bank_details.ifsc);
+    }
+  });
+}
+
+document.getElementById('empForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  btn.querySelector('.btn-text').style.display = 'none';
+  btn.querySelector('.btn-loader').style.display = 'inline';
+  btn.disabled = true;
+
+  const payload = {
+    first_name: document.getElementById('first_name').value.trim(),
+    last_name:  document.getElementById('last_name').value.trim(),
+    email:      document.getElementById('email').value.trim(),
+    phone:      document.getElementById('phone').value.trim(),
+    date_of_birth: document.getElementById('date_of_birth').value || null,
+    gender:     document.getElementById('gender').value,
+    department: document.getElementById('department').value,
+    designation:document.getElementById('designation').value.trim(),
+    employment_type: document.getElementById('employment_type').value,
+    date_of_joining: document.getElementById('date_of_joining').value,
+    salary:     parseFloat(document.getElementById('salary').value) || 0,
+    address: {
+      street: document.getElementById('address_street').value,
+      city:   document.getElementById('address_city').value,
+      state:  document.getElementById('address_state').value,
+      pin:    document.getElementById('address_pin').value,
+    },
+    bank_details: {
+      account_no: document.getElementById('bank_account_no').value,
+      bank_name:  document.getElementById('bank_name').value,
+      ifsc:       document.getElementById('bank_ifsc').value,
+    },
+  };
+
+  let data;
+  if (MODE === 'edit') {
+    data = await API.put(`/api/employees/${EMP_ID}`, payload);
+  } else {
+    data = await API.post('/api/employees', payload);
+  }
+
+  btn.querySelector('.btn-text').style.display = 'inline';
+  btn.querySelector('.btn-loader').style.display = 'none';
+  btn.disabled = false;
+
+  if (data.success) {
+    window.showFlash(MODE === 'edit' ? 'Employee updated!' : 'Employee created!', 'success');
+    setTimeout(() => window.location.href = '/employees', 1000);
+  } else {
+    window.showFlash(data.message || 'Failed to save employee.', 'error');
+  }
+});
+</script>
+{% endblock %}

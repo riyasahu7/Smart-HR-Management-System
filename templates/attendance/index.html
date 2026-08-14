@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Attendance{% endblock %}
+{% block page_title %}Attendance{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <div class="toolbar-left">
+    <input type="month" id="monthPicker" class="filter-select"/>
+    <select id="deptFilter" class="filter-select">
+      <option value="">All Departments</option>
+      <option>Engineering</option><option>Human Resources</option>
+      <option>Finance</option><option>Marketing</option><option>Sales</option>
+      <option>Operations</option><option>Legal</option><option>Customer Support</option><option>Product</option>
+    </select>
+  </div>
+  <div class="toolbar-right">
+    <button class="btn btn-primary" id="checkInBtn">
+      <i class="fa-solid fa-door-open"></i> Check In
+    </button>
+    <button class="btn btn-secondary" id="checkOutBtn">
+      <i class="fa-solid fa-door-closed"></i> Check Out
+    </button>
+    <button class="btn btn-outline" id="downloadBtn">
+      <i class="fa-solid fa-download"></i> Export
+    </button>
+  </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="stat-cards mini" id="attSummary">
+  <div class="stat-card green"><div class="stat-icon"><i class="fa-solid fa-check"></i></div><div class="stat-info"><span class="stat-value" id="sPres">—</span><span class="stat-label">Present</span></div></div>
+  <div class="stat-card red"><div class="stat-icon"><i class="fa-solid fa-xmark"></i></div><div class="stat-info"><span class="stat-value" id="sAbs">—</span><span class="stat-label">Absent</span></div></div>
+  <div class="stat-card yellow"><div class="stat-icon"><i class="fa-solid fa-circle-half-stroke"></i></div><div class="stat-info"><span class="stat-value" id="sHalf">—</span><span class="stat-label">Half Day</span></div></div>
+  <div class="stat-card blue"><div class="stat-icon"><i class="fa-solid fa-house-laptop"></i></div><div class="stat-info"><span class="stat-value" id="sWfh">—</span><span class="stat-label">WFH</span></div></div>
+  <div class="stat-card teal"><div class="stat-icon"><i class="fa-solid fa-clock"></i></div><div class="stat-info"><span class="stat-value" id="sHrs">—h</span><span class="stat-label">Total Hours</span></div></div>
+</div>
+
+<!-- Today's attendance (manager view) -->
+<div class="card" id="todayCard">
+  <div class="card-header">
+    <h3>Today's Attendance</h3>
+    <span class="badge badge-info" id="todayDate"></span>
+  </div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr><th>Employee</th><th>Department</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th><th>Actions</th></tr>
+      </thead>
+      <tbody id="todayBody">
+        <tr><td colspan="7" class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Monthly records (employee view) -->
+<div class="card" id="monthlyCard" style="display:none">
+  <div class="card-header"><h3>Monthly Records</h3></div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr><th>Date</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th><th>Regularized</th></tr>
+      </thead>
+      <tbody id="monthlyBody">
+        <tr><td colspan="6" class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Regularize Modal -->
+<div class="modal-overlay" id="regularizeModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header"><h3><i class="fa-solid fa-pen"></i> Regularize Attendance</h3></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Check In (YYYY-MM-DDTHH:MM:SS)</label>
+        <input type="text" id="regCheckIn" placeholder="2025-01-15T09:00:00"/>
+      </div>
+      <div class="form-group">
+        <label>Check Out</label>
+        <input type="text" id="regCheckOut" placeholder="2025-01-15T18:00:00"/>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="regStatus">
+          <option value="present">Present</option>
+          <option value="work_from_home">Work From Home</option>
+          <option value="half_day">Half Day</option>
+          <option value="on_leave">On Leave</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input type="text" id="regNotes" placeholder="Reason for regularization"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelReg">Cancel</button>
+      <button class="btn btn-primary" id="confirmReg">Save</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+const isEmployee = user.role === 'employee';
+const now = new Date();
+
+// Default month picker to current month
+const mp = document.getElementById('monthPicker');
+mp.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+document.getElementById('todayDate').textContent = now.toDateString();
+
+// Show right view
+if (isEmployee) {
+  document.getElementById('todayCard').style.display = 'none';
+  document.getElementById('monthlyCard').style.display = 'block';
+  loadMyMonthly();
+} else {
+  loadToday();
+}
+
+// Check-in / out
+document.getElementById('checkInBtn').addEventListener('click', async () => {
+  const r = await API.post('/api/attendance/check-in', {});
+  window.showFlash(r.success ? 'Checked in!' : r.message, r.success ? 'success' : 'error');
+  if (r.success && isEmployee) loadMyMonthly();
+});
+document.getElementById('checkOutBtn').addEventListener('click', async () => {
+  const r = await API.post('/api/attendance/check-out', {});
+  window.showFlash(r.success ? 'Checked out!' : r.message, r.success ? 'success' : 'error');
+  if (r.success && isEmployee) loadMyMonthly();
+});
+
+mp.addEventListener('change', () => isEmployee ? loadMyMonthly() : loadToday());
+
+async function loadToday() {
+  const today = now.toISOString().slice(0,10);
+  const r = await API.get(`/api/attendance/today?date=${today}`);
+  const tbody = document.getElementById('todayBody');
+  if (!r.success || !r.data.records.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No attendance records for today.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = r.data.records.map(rec => `
+    <tr>
+      <td>${rec.employee_id}</td>
+      <td>—</td>
+      <td>${rec.check_in ? rec.check_in.slice(11,16) : '—'}</td>
+      <td>${rec.check_out ? rec.check_out.slice(11,16) : '—'}</td>
+      <td>${rec.work_hours || '—'}</td>
+      <td><span class="badge badge-${statusColor(rec.status)}">${rec.status}</span></td>
+      <td>
+        <button class="btn-icon-sm" onclick="openReg('${rec.id}')" title="Regularize">
+          <i class="fa-solid fa-pen-to-square"></i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function loadMyMonthly() {
+  const [yr, mo] = mp.value.split('-');
+  const empId = user.employee_id;
+  if (!empId) return;
+  const r = await API.get(`/api/attendance/${empId}/monthly?year=${yr}&month=${parseInt(mo)}`);
+  const tbody = document.getElementById('monthlyBody');
+  if (!r.success) { tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Failed to load.</td></tr>'; return; }
+
+  const s = r.data.summary;
+  document.getElementById('sPres').textContent = s.present;
+  document.getElementById('sAbs').textContent  = s.absent;
+  document.getElementById('sHalf').textContent = s.half_day;
+  document.getElementById('sWfh').textContent  = s.work_from_home;
+  document.getElementById('sHrs').textContent  = s.total_work_hours + 'h';
+
+  const recs = r.data.records;
+  if (!recs.length) { tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No records.</td></tr>'; return; }
+  tbody.innerHTML = recs.map(rec => `
+    <tr>
+      <td>${rec.date ? rec.date.slice(0,10) : '—'}</td>
+      <td>${rec.check_in ? rec.check_in.slice(11,16) : '—'}</td>
+      <td>${rec.check_out ? rec.check_out.slice(11,16) : '—'}</td>
+      <td>${rec.work_hours || '—'}</td>
+      <td><span class="badge badge-${statusColor(rec.status)}">${rec.status}</span></td>
+      <td>${rec.is_regularized ? '<span class="badge badge-info">Yes</span>' : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function statusColor(s) {
+  return {present:'success',work_from_home:'info',half_day:'warning',absent:'danger',on_leave:'secondary',holiday:'purple'}[s]||'secondary';
+}
+
+let regTarget = null;
+function openReg(id) { regTarget = id; document.getElementById('regularizeModal').style.display = 'flex'; }
+document.getElementById('cancelReg').onclick = () => document.getElementById('regularizeModal').style.display = 'none';
+document.getElementById('confirmReg').onclick = async () => {
+  if (!regTarget) return;
+  const payload = {
+    check_in: document.getElementById('regCheckIn').value,
+    check_out: document.getElementById('regCheckOut').value,
+    status: document.getElementById('regStatus').value,
+    notes: document.getElementById('regNotes').value,
+  };
+  const r = await API.put(`/api/attendance/${regTarget}/regularize`, payload);
+  document.getElementById('regularizeModal').style.display = 'none';
+  window.showFlash(r.success ? 'Attendance regularized.' : r.message, r.success ? 'success' : 'error');
+  loadToday();
+};
+
+// Export
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const [yr, mo] = mp.value.split('-');
+  window.open(`/api/reports/attendance?year=${yr}&month=${parseInt(mo)}&format=excel`, '_blank');
+});
+</script>
+{% endblock %}

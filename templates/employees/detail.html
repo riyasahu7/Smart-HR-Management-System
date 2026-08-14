@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Employee Detail{% endblock %}
+{% block page_title %}Employee Profile{% endblock %}
+
+{% block content %}
+<div class="detail-page" id="detailPage">
+  <div class="detail-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading profile…</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+const EMP_ID = '{{ employee_id }}';
+
+async function loadProfile() {
+  const [empRes, attRes, leaveRes] = await Promise.all([
+    API.get(`/api/employees/${EMP_ID}`),
+    API.get(`/api/attendance/${EMP_ID}/monthly?year=${new Date().getFullYear()}&month=${new Date().getMonth()+1}`),
+    API.get(`/api/leave/balance/${EMP_ID}`),
+  ]);
+
+  const page = document.getElementById('detailPage');
+  if (!empRes.success) {
+    page.innerHTML = '<p class="empty-state">Employee not found.</p>';
+    return;
+  }
+
+  const e = empRes.data;
+  const att = attRes.success ? attRes.data.summary : {};
+  const bal = leaveRes.success ? leaveRes.data : {};
+
+  page.innerHTML = `
+    <div class="profile-header card">
+      <div class="profile-avatar">${(e.full_name||'?')[0]}</div>
+      <div class="profile-info">
+        <h2>${e.full_name}</h2>
+        <p class="profile-sub">${e.designation} — ${e.department}</p>
+        <div class="profile-badges">
+          <span class="badge badge-${e.status==='active'?'success':'danger'}">${e.status}</span>
+          <span class="badge badge-secondary">${e.employment_type}</span>
+          <span class="badge badge-info">${e.emp_id}</span>
+        </div>
+      </div>
+      <div class="profile-actions">
+        <a href="/employees/${EMP_ID}/edit" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-pen"></i> Edit
+        </a>
+        <a href="/employees" class="btn btn-outline btn-sm">Back</a>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <!-- Personal -->
+      <div class="card detail-card">
+        <div class="card-header"><h3>Personal Details</h3></div>
+        <div class="detail-list">
+          <div class="detail-row"><span>Email</span><span>${e.email}</span></div>
+          <div class="detail-row"><span>Phone</span><span>${e.phone}</span></div>
+          <div class="detail-row"><span>Date of Birth</span><span>${e.date_of_birth ? e.date_of_birth.slice(0,10) : '—'}</span></div>
+          <div class="detail-row"><span>Gender</span><span>${e.gender || '—'}</span></div>
+        </div>
+      </div>
+
+      <!-- Job -->
+      <div class="card detail-card">
+        <div class="card-header"><h3>Job Details</h3></div>
+        <div class="detail-list">
+          <div class="detail-row"><span>Date of Joining</span><span>${e.date_of_joining ? e.date_of_joining.slice(0,10) : '—'}</span></div>
+          <div class="detail-row"><span>Salary</span><span>₹${(e.salary||0).toLocaleString('en-IN')}/mo</span></div>
+          <div class="detail-row"><span>Employment Type</span><span>${e.employment_type}</span></div>
+        </div>
+      </div>
+
+      <!-- Attendance summary -->
+      <div class="card detail-card">
+        <div class="card-header"><h3>This Month Attendance</h3></div>
+        <div class="mini-stat-grid">
+          <div class="mini-stat green"><span>${att.present||0}</span><small>Present</small></div>
+          <div class="mini-stat red"><span>${att.absent||0}</span><small>Absent</small></div>
+          <div class="mini-stat yellow"><span>${att.half_day||0}</span><small>Half Day</small></div>
+          <div class="mini-stat blue"><span>${att.work_from_home||0}</span><small>WFH</small></div>
+          <div class="mini-stat teal"><span>${att.total_work_hours||0}h</span><small>Hours</small></div>
+        </div>
+      </div>
+
+      <!-- Leave balances -->
+      <div class="card detail-card">
+        <div class="card-header"><h3>Leave Balance (${new Date().getFullYear()})</h3></div>
+        <div class="leave-balance-grid">
+          ${['casual','sick','earned','paternity','maternity'].map(t => {
+            const b = bal[t] || {};
+            return `<div class="leave-bal-item">
+              <span class="leave-type">${t.charAt(0).toUpperCase()+t.slice(1)}</span>
+              <div class="leave-bar-wrap">
+                <div class="leave-bar" style="width:${b.total?Math.round((b.remaining/b.total)*100):0}%"></div>
+              </div>
+              <span class="leave-nums">${b.remaining||0}/${b.total||0}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+loadProfile();
+</script>
+{% endblock %}

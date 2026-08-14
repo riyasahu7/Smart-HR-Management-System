@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Payroll{% endblock %}
+{% block page_title %}Payroll Management{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <div class="toolbar-left">
+    <select id="monthSel" class="filter-select">
+      <option value="1">January</option><option value="2">February</option>
+      <option value="3">March</option><option value="4">April</option>
+      <option value="5">May</option><option value="6">June</option>
+      <option value="7">July</option><option value="8">August</option>
+      <option value="9">September</option><option value="10">October</option>
+      <option value="11">November</option><option value="12">December</option>
+    </select>
+    <input type="number" id="yearSel" class="filter-select" style="width:100px" placeholder="Year" min="2020" max="2030"/>
+    <select id="deptFilter" class="filter-select">
+      <option value="">All Departments</option>
+      <option>Engineering</option><option>Human Resources</option><option>Finance</option>
+      <option>Marketing</option><option>Sales</option><option>Operations</option>
+    </select>
+  </div>
+  <div class="toolbar-right">
+    <button class="btn btn-secondary" id="bulkGenBtn">
+      <i class="fa-solid fa-bolt"></i> Bulk Generate
+    </button>
+    <button class="btn btn-outline" id="exportBtn">
+      <i class="fa-solid fa-download"></i> Export Excel
+    </button>
+    <button class="btn btn-primary" id="genSingleBtn">
+      <i class="fa-solid fa-plus"></i> Generate
+    </button>
+  </div>
+</div>
+
+<!-- Summary Banner -->
+<div class="payroll-summary-banner" id="payrollBanner">
+  <div class="psb-item"><span class="psb-label">Total Gross</span><span class="psb-val" id="totalGross">₹—</span></div>
+  <div class="psb-item"><span class="psb-label">Total Deductions</span><span class="psb-val" id="totalDed">₹—</span></div>
+  <div class="psb-item"><span class="psb-label">Net Payable</span><span class="psb-val highlight" id="totalNet">₹—</span></div>
+  <div class="psb-item"><span class="psb-label">Records</span><span class="psb-val" id="totalRecs">—</span></div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table" id="payrollTable">
+      <thead>
+        <tr>
+          <th>Employee</th><th>Dept</th><th>Worked Days</th><th>Basic</th>
+          <th>Gross</th><th>Deductions</th><th>Net</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="payrollBody">
+        <tr><td colspan="9" class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-pagination" id="payrollPagination"></div>
+</div>
+
+<!-- Generate Single Modal -->
+<div class="modal-overlay" id="genModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-file-invoice-dollar"></i> Generate Payroll</h3>
+      <button class="btn-icon" id="closeGenModal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Employee ID *</label>
+        <input type="text" id="genEmpId" placeholder="MongoDB Object ID of employee"/>
+      </div>
+      <div class="form-group">
+        <label>Month *</label>
+        <select id="genMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Year *</label>
+        <input type="number" id="genYear" value="2025" min="2020" max="2030"/>
+      </div>
+      <div class="form-group">
+        <label>Remarks</label>
+        <input type="text" id="genRemarks" placeholder="Optional remarks"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelGen">Cancel</button>
+      <button class="btn btn-primary" id="confirmGen">Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payslip Detail Modal -->
+<div class="modal-overlay" id="payslipModal" style="display:none">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-receipt"></i> Payslip Detail</h3>
+      <button class="btn-icon" id="closePayslip"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" id="payslipBody"></div>
+    <div class="modal-footer" id="payslipFooter"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+const canManage = ['admin','hr_manager'].includes(user.role);
+const now = new Date();
+let currentPage = 1;
+
+document.getElementById('monthSel').value = now.getMonth() + 1;
+document.getElementById('yearSel').value  = now.getFullYear();
+
+async function loadPayroll(page = 1) {
+  currentPage = page;
+  const month = document.getElementById('monthSel').value;
+  const year  = document.getElementById('yearSel').value;
+  const dept  = document.getElementById('deptFilter').value;
+
+  if (user.role === 'employee') {
+    const r = await API.get(`/api/payroll/employee/${user.employee_id}`);
+    renderPayslips(r.success ? r.data : []);
+    return;
+  }
+
+  let url = `/api/payroll?month=${month}&year=${year}&page=${page}&per_page=20`;
+  if (dept) url += `&department=${encodeURIComponent(dept)}`;
+
+  const r = await API.get(url);
+  if (!r.success) { document.getElementById('payrollBody').innerHTML = '<tr><td colspan="9" class="table-empty">Failed.</td></tr>'; return; }
+
+  const payrolls = r.data.payroll;
+  updateSummary(payrolls);
+  renderPayslips(payrolls);
+  renderPagination('payrollPagination', r.data.pagination, loadPayroll);
+}
+
+function updateSummary(rows) {
+  const gross = rows.reduce((s,r) => s + (r.gross_salary||0), 0);
+  const ded   = rows.reduce((s,r) => s + (r.total_deductions||0), 0);
+  const net   = rows.reduce((s,r) => s + (r.net_salary||0), 0);
+  document.getElementById('totalGross').textContent = '₹' + gross.toLocaleString('en-IN');
+  document.getElementById('totalDed').textContent   = '₹' + ded.toLocaleString('en-IN');
+  document.getElementById('totalNet').textContent   = '₹' + net.toLocaleString('en-IN');
+  document.getElementById('totalRecs').textContent  = rows.length;
+}
+
+function renderPayslips(payrolls) {
+  const tbody = document.getElementById('payrollBody');
+  const statusColor = {draft:'secondary',processed:'info',paid:'success',cancelled:'danger'};
+  if (!payrolls.length) { tbody.innerHTML = '<tr><td colspan="9" class="table-empty">No payroll records.</td></tr>'; return; }
+  tbody.innerHTML = payrolls.map(p => `
+    <tr>
+      <td>${p.employee_name || p.employee_id}</td>
+      <td>${p.department || '—'}</td>
+      <td>${p.worked_days}/${p.total_days}</td>
+      <td>₹${(p.prorated_basic||0).toLocaleString('en-IN')}</td>
+      <td>₹${(p.gross_salary||0).toLocaleString('en-IN')}</td>
+      <td>₹${(p.total_deductions||0).toLocaleString('en-IN')}</td>
+      <td><b>₹${(p.net_salary||0).toLocaleString('en-IN')}</b></td>
+      <td><span class="badge badge-${statusColor[p.status]||'secondary'}">${p.status}</span></td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-icon-sm" onclick="viewPayslip('${p.id}')" title="View"><i class="fa-solid fa-eye"></i></button>
+          ${canManage && p.status === 'draft' ? `<button class="btn-icon-sm text-blue" onclick="processPayroll('${p.id}')" title="Process"><i class="fa-solid fa-gear"></i></button>` : ''}
+          ${canManage && p.status === 'processed' ? `<button class="btn-icon-sm text-green" onclick="markPaid('${p.id}')" title="Mark Paid"><i class="fa-solid fa-check-double"></i></button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function viewPayslip(id) {
+  const r = await API.get(`/api/payroll/${id}`);
+  if (!r.success) { window.showFlash('Could not load payslip.', 'error'); return; }
+  const p = r.data;
+  const all = {...(p.allowances||{}), ...(p.deductions||{})};
+  document.getElementById('payslipBody').innerHTML = `
+    <div class="payslip">
+      <div class="payslip-header">
+        <h3>${p.employee_name || 'Employee'}</h3>
+        <p>${p.department} · ${p.designation || ''}</p>
+        <p>Pay Period: <b>${p.pay_period}</b></p>
+      </div>
+      <div class="payslip-grid">
+        <div class="payslip-col">
+          <h4>Earnings</h4>
+          <div class="payslip-row"><span>Basic (Prorated)</span><span>₹${(p.prorated_basic||0).toLocaleString('en-IN')}</span></div>
+          ${Object.entries(p.allowances||{}).map(([k,v]) => v>0 ? `<div class="payslip-row"><span>${k.toUpperCase()}</span><span>₹${v.toLocaleString('en-IN')}</span></div>` : '').join('')}
+          <div class="payslip-row total"><span>Gross Salary</span><span>₹${(p.gross_salary||0).toLocaleString('en-IN')}</span></div>
+        </div>
+        <div class="payslip-col">
+          <h4>Deductions</h4>
+          ${Object.entries(p.deductions||{}).map(([k,v]) => v>0 ? `<div class="payslip-row"><span>${k.toUpperCase()}</span><span>₹${v.toLocaleString('en-IN')}</span></div>` : '').join('')}
+          <div class="payslip-row total"><span>Total Deductions</span><span>₹${(p.total_deductions||0).toLocaleString('en-IN')}</span></div>
+        </div>
+      </div>
+      <div class="payslip-net">Net Payable: <b>₹${(p.net_salary||0).toLocaleString('en-IN')}</b></div>
+    </div>`;
+  document.getElementById('payslipFooter').innerHTML = canManage && p.status === 'draft'
+    ? `<button class="btn btn-primary" onclick="processPayroll('${p.id}');closePayslip()">Process</button>` : '';
+  document.getElementById('payslipModal').style.display = 'flex';
+}
+
+function closePayslip() { document.getElementById('payslipModal').style.display = 'none'; }
+document.getElementById('closePayslip').onclick = closePayslip;
+
+async function processPayroll(id) {
+  const r = await API.put(`/api/payroll/${id}/process`, {});
+  window.showFlash(r.success ? 'Payroll processed!' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadPayroll(currentPage);
+}
+async function markPaid(id) {
+  const r = await API.put(`/api/payroll/${id}/pay`, {payment_mode:'bank_transfer'});
+  window.showFlash(r.success ? 'Marked as paid!' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadPayroll(currentPage);
+}
+
+// Bulk generate
+document.getElementById('bulkGenBtn').addEventListener('click', async () => {
+  const month = document.getElementById('monthSel').value;
+  const year  = document.getElementById('yearSel').value;
+  const dept  = document.getElementById('deptFilter').value;
+  if (!confirm(`Bulk generate payroll for ${month}/${year}${dept ? ' - ' + dept : ''}?`)) return;
+  const r = await API.post('/api/payroll/bulk-generate', {month:parseInt(month), year:parseInt(year), department:dept||undefined});
+  window.showFlash(r.success ? `Generated: ${r.data.generated}, Skipped: ${r.data.skipped}` : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadPayroll(1);
+});
+
+// Single generate
+document.getElementById('genSingleBtn').onclick = () => document.getElementById('genModal').style.display = 'flex';
+document.getElementById('closeGenModal').onclick = () => document.getElementById('genModal').style.display = 'none';
+document.getElementById('cancelGen').onclick = () => document.getElementById('genModal').style.display = 'none';
+document.getElementById('confirmGen').addEventListener('click', async () => {
+  const r = await API.post('/api/payroll/generate', {
+    employee_id: document.getElementById('genEmpId').value.trim(),
+    month: parseInt(document.getElementById('genMonth').value),
+    year:  parseInt(document.getElementById('genYear').value),
+    remarks: document.getElementById('genRemarks').value,
+  });
+  document.getElementById('genModal').style.display = 'none';
+  window.showFlash(r.success ? 'Payroll generated!' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadPayroll(1);
+});
+
+// Export
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const m = document.getElementById('monthSel').value;
+  const y = document.getElementById('yearSel').value;
+  window.open(`/api/reports/payroll?month=${m}&year=${y}&format=excel`, '_blank');
+});
+
+document.getElementById('monthSel').addEventListener('change', () => loadPayroll(1));
+document.getElementById('yearSel').addEventListener('change', () => loadPayroll(1));
+document.getElementById('deptFilter').addEventListener('change', () => loadPayroll(1));
+loadPayroll();
+</script>
+{% endblock %}

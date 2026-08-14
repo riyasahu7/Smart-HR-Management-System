@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+Smart-HR-Management-System/venv/
+
+# Environment / secrets — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Uploads / generated files
+uploads/
+instance/
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage

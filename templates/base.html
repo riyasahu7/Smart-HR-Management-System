@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Smart HR{% endblock %} — Smart HR Management</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block body_class %}app-body{% endblock %}">
+
+{% block body %}
+<!-- Sidebar + main layout -->
+<div class="app-layout" id="appLayout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <i class="fa-solid fa-building-user"></i>
+      <span>Smart HR</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="/dashboard"        class="nav-item" data-page="dashboard">
+        <i class="fa-solid fa-gauge-high"></i><span>Dashboard</span>
+      </a>
+      <a href="/employees"        class="nav-item" data-page="employees">
+        <i class="fa-solid fa-users"></i><span>Employees</span>
+      </a>
+      <a href="/attendance"       class="nav-item" data-page="attendance">
+        <i class="fa-solid fa-clock"></i><span>Attendance</span>
+      </a>
+      <a href="/leave"            class="nav-item" data-page="leave">
+        <i class="fa-solid fa-calendar-xmark"></i><span>Leave</span>
+      </a>
+      <a href="/payroll"          class="nav-item" data-page="payroll">
+        <i class="fa-solid fa-money-bill-wave"></i><span>Payroll</span>
+      </a>
+      <a href="/performance"      class="nav-item" data-page="performance">
+        <i class="fa-solid fa-chart-line"></i><span>Performance</span>
+      </a>
+      <a href="/reports"          class="nav-item" data-page="reports">
+        <i class="fa-solid fa-file-chart-column"></i><span>Reports</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="btn-icon" id="logoutBtn" title="Logout">
+        <i class="fa-solid fa-right-from-bracket"></i><span>Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="main-wrapper">
+    <!-- Top bar -->
+    <header class="topbar">
+      <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <div class="topbar-title">{% block page_title %}{% endblock %}</div>
+      <div class="topbar-right">
+        <button class="btn-icon topbar-ai" id="openAiChat" title="HR Assistant">
+          <i class="fa-solid fa-robot"></i>
+        </button>
+        <div class="topbar-user" id="topbarUser">
+          <div class="avatar" id="userAvatar">U</div>
+          <div class="user-info">
+            <span class="user-name" id="userName">Loading…</span>
+            <span class="user-role badge" id="userRole"></span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Flash messages -->
+    <div class="flash-container" id="flashContainer"></div>
+
+    <!-- Page content -->
+    <main class="page-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<!-- AI Chat Drawer -->
+<div class="ai-drawer" id="aiDrawer">
+  <div class="ai-drawer-header">
+    <span><i class="fa-solid fa-robot"></i> HR Assistant</span>
+    <button class="btn-icon" id="closeAiChat"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="ai-messages" id="aiMessages">
+    <div class="ai-msg bot">
+      <i class="fa-solid fa-robot"></i>
+      <div class="bubble">Hello! I'm your HR Assistant. Ask me about leave policies, payroll, attendance, or any HR query!</div>
+    </div>
+  </div>
+  <div class="ai-input-row">
+    <input type="text" id="aiInput" placeholder="Ask something…" autocomplete="off"/>
+    <button id="aiSend"><i class="fa-solid fa-paper-plane"></i></button>
+  </div>
+</div>
+<div class="ai-overlay" id="aiOverlay"></div>
+
+{% endblock %}
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

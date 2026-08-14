@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Employees{% endblock %}
+{% block page_title %}Employees{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <div class="toolbar-left">
+    <input type="text" id="searchInput" class="search-input" placeholder="Search by name, ID, role…"/>
+    <select id="deptFilter" class="filter-select">
+      <option value="">All Departments</option>
+      <option>Engineering</option><option>Human Resources</option>
+      <option>Finance</option><option>Marketing</option>
+      <option>Sales</option><option>Operations</option>
+      <option>Legal</option><option>Customer Support</option><option>Product</option>
+    </select>
+    <select id="statusFilter" class="filter-select">
+      <option value="">All Status</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+      <option value="terminated">Terminated</option>
+    </select>
+  </div>
+  <div class="toolbar-right">
+    <a href="/employees/new" class="btn btn-primary" id="addEmpBtn">
+      <i class="fa-solid fa-plus"></i> Add Employee
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="data-table" id="empTable">
+      <thead>
+        <tr>
+          <th>EMP ID</th>
+          <th>Name</th>
+          <th>Department</th>
+          <th>Designation</th>
+          <th>Email</th>
+          <th>Joined</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="empTableBody">
+        <tr><td colspan="8" class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-pagination" id="empPagination"></div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal-overlay" id="deleteModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-triangle-exclamation text-red"></i> Terminate Employee</h3>
+    </div>
+    <div class="modal-body">
+      <p>Are you sure you want to terminate <strong id="deleteEmpName"></strong>?
+      This action will mark the employee as terminated.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelDelete">Cancel</button>
+      <button class="btn btn-danger" id="confirmDelete">Terminate</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+let currentPage = 1;
+let deleteTarget = null;
+const perPage = 20;
+
+function statusBadge(status) {
+  const map = { active:'success', inactive:'warning', terminated:'danger', on_leave:'info' };
+  return `<span class="badge badge-${map[status]||'secondary'}">${status}</span>`;
+}
+
+async function loadEmployees(page = 1) {
+  currentPage = page;
+  const search = document.getElementById('searchInput').value.trim();
+  const dept   = document.getElementById('deptFilter').value;
+  const status = document.getElementById('statusFilter').value;
+
+  let url = `/api/employees?page=${page}&per_page=${perPage}`;
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+  if (dept)   url += `&department=${encodeURIComponent(dept)}`;
+  if (status) url += `&status=${encodeURIComponent(status)}`;
+
+  const data = await API.get(url);
+  const tbody = document.getElementById('empTableBody');
+
+  if (!data.success) {
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Failed to load employees.</td></tr>`;
+    return;
+  }
+
+  const emps = data.data.employees;
+  if (!emps.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No employees found.</td></tr>`;
+    document.getElementById('empPagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = emps.map(e => `
+    <tr>
+      <td><span class="mono">${e.emp_id || '—'}</span></td>
+      <td>
+        <div class="name-cell">
+          <div class="avatar sm">${(e.full_name||'?')[0]}</div>
+          <span>${e.full_name || '—'}</span>
+        </div>
+      </td>
+      <td>${e.department || '—'}</td>
+      <td>${e.designation || '—'}</td>
+      <td><a href="mailto:${e.email}">${e.email}</a></td>
+      <td>${e.date_of_joining ? e.date_of_joining.slice(0,10) : '—'}</td>
+      <td>${statusBadge(e.status)}</td>
+      <td>
+        <div class="action-btns">
+          <a href="/employees/${e.id}" class="btn-icon-sm" title="View"><i class="fa-solid fa-eye"></i></a>
+          <a href="/employees/${e.id}/edit" class="btn-icon-sm" title="Edit"><i class="fa-solid fa-pen"></i></a>
+          <button class="btn-icon-sm text-red" onclick="openDelete('${e.id}','${e.full_name}')" title="Terminate"><i class="fa-solid fa-ban"></i></button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  const p = data.data.pagination;
+  renderPagination('empPagination', p, loadEmployees);
+}
+
+function openDelete(id, name) {
+  deleteTarget = id;
+  document.getElementById('deleteEmpName').textContent = name;
+  document.getElementById('deleteModal').style.display = 'flex';
+}
+document.getElementById('cancelDelete').onclick = () => {
+  document.getElementById('deleteModal').style.display = 'none';
+};
+document.getElementById('confirmDelete').onclick = async () => {
+  if (!deleteTarget) return;
+  const data = await API.del(`/api/employees/${deleteTarget}`);
+  document.getElementById('deleteModal').style.display = 'none';
+  if (data.success) { window.showFlash('Employee terminated.', 'success'); loadEmployees(currentPage); }
+  else window.showFlash(data.message, 'error');
+};
+
+// Debounced search
+let searchTimer;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadEmployees(1), 400);
+});
+document.getElementById('deptFilter').addEventListener('change', () => loadEmployees(1));
+document.getElementById('statusFilter').addEventListener('change', () => loadEmployees(1));
+
+// Hide add button for employees
+const userRole = JSON.parse(localStorage.getItem('user')||'{}').role;
+if (userRole === 'employee') document.getElementById('addEmpBtn').style.display = 'none';
+
+loadEmployees();
+</script>
+{% endblock %}

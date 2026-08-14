@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-page">
+
+  <!-- Welcome Banner -->
+  <div class="welcome-banner" id="welcomeBanner">
+    <div>
+      <h2 id="welcomeMsg">Good morning!</h2>
+      <p id="welcomeDate"></p>
+    </div>
+    <div class="banner-actions">
+      <button class="btn btn-sm btn-outline" id="checkInBtn">
+        <i class="fa-solid fa-door-open"></i> Check In
+      </button>
+      <button class="btn btn-sm btn-secondary" id="checkOutBtn">
+        <i class="fa-solid fa-door-closed"></i> Check Out
+      </button>
+    </div>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="stat-cards">
+    <div class="stat-card blue">
+      <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
+      <div class="stat-info">
+        <span class="stat-value" id="statEmployees">—</span>
+        <span class="stat-label">Total Employees</span>
+      </div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-info">
+        <span class="stat-value" id="statPresent">—</span>
+        <span class="stat-label">Present Today</span>
+      </div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="stat-icon"><i class="fa-solid fa-calendar-xmark"></i></div>
+      <div class="stat-info">
+        <span class="stat-value" id="statLeave">—</span>
+        <span class="stat-label">Pending Leaves</span>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon"><i class="fa-solid fa-money-bill-wave"></i></div>
+      <div class="stat-info">
+        <span class="stat-value" id="statPayroll">—</span>
+        <span class="stat-label">Payroll Processed</span>
+      </div>
+    </div>
+    <div class="stat-card teal">
+      <div class="stat-icon"><i class="fa-solid fa-user-plus"></i></div>
+      <div class="stat-info">
+        <span class="stat-value" id="statJoiners">—</span>
+        <span class="stat-label">New Joiners (30d)</span>
+      </div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-icon"><i class="fa-solid fa-percent"></i></div>
+      <div class="stat-info">
+        <span class="stat-value" id="statAttRate">—%</span>
+        <span class="stat-label">Attendance Rate</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Department Distribution</h3>
+      </div>
+      <div class="chart-body">
+        <canvas id="deptChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Attendance Breakdown (30 days)</h3>
+      </div>
+      <div class="chart-body">
+        <canvas id="attChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Gender Distribution</h3>
+      </div>
+      <div class="chart-body">
+        <canvas id="genderChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions + Pending Leave -->
+  <div class="bottom-row">
+    <div class="card">
+      <div class="card-header"><h3>Quick Actions</h3></div>
+      <div class="quick-actions">
+        <a href="/employees/new" class="quick-btn">
+          <i class="fa-solid fa-user-plus"></i><span>Add Employee</span>
+        </a>
+        <a href="/leave" class="quick-btn">
+          <i class="fa-solid fa-calendar-plus"></i><span>Apply Leave</span>
+        </a>
+        <a href="/payroll" class="quick-btn">
+          <i class="fa-solid fa-file-invoice-dollar"></i><span>Run Payroll</span>
+        </a>
+        <a href="/reports" class="quick-btn">
+          <i class="fa-solid fa-download"></i><span>Export Report</span>
+        </a>
+        <a href="/performance" class="quick-btn">
+          <i class="fa-solid fa-star-half-stroke"></i><span>Reviews</span>
+        </a>
+        <a href="/attendance" class="quick-btn">
+          <i class="fa-solid fa-clipboard-list"></i><span>Attendance</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Pending Leave Requests</h3>
+        <a href="/leave" class="view-all">View all</a>
+      </div>
+      <div id="pendingLeaveList" class="mini-list">
+        <div class="loading-placeholder"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+
+// Welcome greeting
+const hour = new Date().getHours();
+const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+document.getElementById('welcomeMsg').textContent = `${greet}, ${user.username || 'there'}!`;
+document.getElementById('welcomeDate').textContent = new Date().toLocaleDateString('en-IN', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+
+// Check-in / Check-out
+document.getElementById('checkInBtn').addEventListener('click', async () => {
+  const data = await API.post('/api/attendance/check-in', {});
+  if (data.success) window.showFlash('Checked in successfully!', 'success');
+  else window.showFlash(data.message || 'Already checked in.', 'warning');
+});
+document.getElementById('checkOutBtn').addEventListener('click', async () => {
+  const data = await API.post('/api/attendance/check-out', {});
+  if (data.success) window.showFlash('Checked out successfully!', 'success');
+  else window.showFlash(data.message || 'Error checking out.', 'warning');
+});
+
+// Load dashboard stats
+async function loadStats() {
+  const data = await API.get('/api/reports/dashboard-stats');
+  if (!data.success) return;
+  const d = data.data;
+  document.getElementById('statEmployees').textContent = d.total_employees ?? '—';
+  document.getElementById('statPresent').textContent   = d.present_today ?? '—';
+  document.getElementById('statLeave').textContent     = d.pending_leave_requests ?? '—';
+  document.getElementById('statPayroll').textContent   = d.payroll_processed_this_month ?? '—';
+  document.getElementById('statJoiners').textContent   = d.recent_joiners ?? '—';
+  document.getElementById('statAttRate').textContent   = (d.attendance_rate ?? '—') + '%';
+
+  // Department chart
+  const depts = d.department_distribution || [];
+  new Chart(document.getElementById('deptChart'), {
+    type: 'bar',
+    data: {
+      labels: depts.map(x => x._id || 'Unknown'),
+      datasets: [{ label: 'Employees', data: depts.map(x => x.count),
+        backgroundColor: '#3b82f6', borderRadius: 6 }],
+    },
+    options: { responsive: true, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } },
+  });
+
+  // Attendance donut
+  const att = d.attendance_breakdown || {};
+  const attLabels = Object.keys(att);
+  const attColors = ['#10b981','#f59e0b','#ef4444','#6366f1','#14b8a6','#e879f9'];
+  new Chart(document.getElementById('attChart'), {
+    type: 'doughnut',
+    data: {
+      labels: attLabels,
+      datasets: [{ data: Object.values(att), backgroundColor: attColors }],
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } },
+  });
+
+  // Gender chart
+  const gender = d.gender_distribution || [];
+  new Chart(document.getElementById('genderChart'), {
+    type: 'pie',
+    data: {
+      labels: gender.map(x => x._id || 'Not specified'),
+      datasets: [{ data: gender.map(x => x.count),
+        backgroundColor: ['#3b82f6','#ec4899','#a78bfa'] }],
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } },
+  });
+}
+
+// Pending leaves
+async function loadPendingLeaves() {
+  const data = await API.get('/api/leave/requests?status=pending&per_page=5');
+  const container = document.getElementById('pendingLeaveList');
+  if (!data.success || !data.data.requests.length) {
+    container.innerHTML = '<p class="empty-state">No pending leave requests.</p>';
+    return;
+  }
+  container.innerHTML = data.data.requests.map(r => `
+    <div class="mini-list-item">
+      <div class="mini-item-info">
+        <span class="mini-item-title">${r.employee_id}</span>
+        <span class="mini-item-sub">${r.leave_type} · ${r.days_requested} day(s)</span>
+      </div>
+      <span class="badge badge-warning">Pending</span>
+    </div>
+  `).join('');
+}
+
+loadStats();
+loadPendingLeaves();
+</script>
+{% endblock %}

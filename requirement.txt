@@ -1,0 +1,14 @@
+# Smart HR Management System — Python Dependencies
+# Install: pip install -r requirement.txt
+
+Flask==3.1.0
+Flask-PyMongo==2.3.0
+Flask-JWT-Extended==4.7.1
+Flask-Bcrypt==1.0.1
+Flask-Mail==0.10.0
+Flask-CORS==5.0.0
+pymongo==4.10.1
+python-dotenv==1.0.1
+openpyxl==3.1.5
+openai==0.28.1
+Werkzeug==3.1.3

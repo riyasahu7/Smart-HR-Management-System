@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Leave Management{% endblock %}
+{% block page_title %}Leave Management{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <div class="toolbar-left">
+    <select id="statusFilter" class="filter-select">
+      <option value="">All Status</option>
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="rejected">Rejected</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
+    <select id="typeFilter" class="filter-select">
+      <option value="">All Types</option>
+      <option value="casual">Casual</option><option value="sick">Sick</option>
+      <option value="earned">Earned</option><option value="maternity">Maternity</option>
+      <option value="paternity">Paternity</option><option value="bereavement">Bereavement</option>
+      <option value="unpaid">Unpaid</option>
+    </select>
+  </div>
+  <div class="toolbar-right">
+    <button class="btn btn-primary" id="applyLeaveBtn">
+      <i class="fa-solid fa-plus"></i> Apply Leave
+    </button>
+  </div>
+</div>
+
+<!-- Leave Balance Cards (employee view) -->
+<div id="balanceSection"></div>
+
+<!-- Leave Requests Table -->
+<div class="card">
+  <div class="card-header"><h3>Leave Requests</h3></div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Employee</th><th>Type</th><th>From</th><th>To</th>
+          <th>Days</th><th>Reason</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="leaveTableBody">
+        <tr><td colspan="8" class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-pagination" id="leavePagination"></div>
+</div>
+
+<!-- Apply Leave Modal -->
+<div class="modal-overlay" id="applyModal" style="display:none">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-calendar-plus"></i> Apply for Leave</h3>
+      <button class="btn-icon" id="closeApplyModal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Leave Type *</label>
+          <select id="leaveType">
+            <option value="">Select Type</option>
+            <option value="casual">Casual</option><option value="sick">Sick</option>
+            <option value="earned">Earned</option><option value="maternity">Maternity</option>
+            <option value="paternity">Paternity</option><option value="bereavement">Bereavement</option>
+            <option value="unpaid">Unpaid</option>
+          </select>
+        </div>
+        <div class="form-group" id="empIdGroup" style="display:none">
+          <label>Employee ID (HR only)</label>
+          <input type="text" id="leaveEmpId" placeholder="Employee ID"/>
+        </div>
+        <div class="form-group">
+          <label>Start Date *</label>
+          <input type="date" id="leaveStart"/>
+        </div>
+        <div class="form-group">
+          <label>End Date *</label>
+          <input type="date" id="leaveEnd"/>
+        </div>
+        <div class="form-group full-width">
+          <label>Reason *</label>
+          <textarea id="leaveReason" rows="3" placeholder="Provide reason for leave request…"></textarea>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="halfDay"/> Half Day
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelApply">Cancel</button>
+      <button class="btn btn-primary" id="submitLeave">
+        <span class="btn-text">Submit Request</span>
+        <span class="btn-loader" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Review Modal (HR/Manager) -->
+<div class="modal-overlay" id="reviewModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header"><h3><i class="fa-solid fa-clipboard-check"></i> Review Leave Request</h3></div>
+    <div class="modal-body">
+      <div id="reviewDetail" class="review-detail"></div>
+      <div class="form-group">
+        <label>Comments</label>
+        <textarea id="reviewComments" rows="3" placeholder="Optional remarks…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelReview">Cancel</button>
+      <button class="btn btn-danger" id="rejectBtn"><i class="fa-solid fa-xmark"></i> Reject</button>
+      <button class="btn btn-success" id="approveBtn"><i class="fa-solid fa-check"></i> Approve</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+const isEmployee = user.role === 'employee';
+const canReview = ['admin','hr_manager','manager'].includes(user.role);
+let currentPage = 1, reviewTarget = null;
+
+if (!isEmployee) document.getElementById('empIdGroup').style.display = 'block';
+
+// Load leave balance for employees
+if (isEmployee && user.employee_id) {
+  API.get(`/api/leave/balance/${user.employee_id}`).then(r => {
+    if (!r.success) return;
+    const b = r.data;
+    const types = ['casual','sick','earned','maternity','paternity','bereavement','compensatory'];
+    document.getElementById('balanceSection').innerHTML = `
+      <div class="leave-balance-row">
+        ${types.map(t => {
+          const lv = b[t] || {};
+          const pct = lv.total ? Math.round((lv.remaining/lv.total)*100) : 0;
+          return `<div class="leave-bal-card">
+            <span class="lbal-type">${t.charAt(0).toUpperCase()+t.slice(1)}</span>
+            <div class="lbal-bar-wrap"><div class="lbal-bar" style="width:${pct}%"></div></div>
+            <span class="lbal-nums"><b>${lv.remaining ?? 0}</b> / ${lv.total ?? 0}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+  });
+}
+
+async function loadLeaves(page = 1) {
+  currentPage = page;
+  const status = document.getElementById('statusFilter').value;
+  const type   = document.getElementById('typeFilter').value;
+  let url = `/api/leave/requests?page=${page}&per_page=20`;
+  if (status) url += `&status=${status}`;
+  if (type)   url += `&leave_type=${type}`;
+
+  const r = await API.get(url);
+  const tbody = document.getElementById('leaveTableBody');
+  if (!r.success) { tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Failed to load.</td></tr>'; return; }
+
+  const reqs = r.data.requests;
+  if (!reqs.length) { tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No leave requests found.</td></tr>'; return; }
+
+  const statusColor = {pending:'warning',approved:'success',rejected:'danger',cancelled:'secondary'};
+
+  tbody.innerHTML = reqs.map(req => `
+    <tr>
+      <td>${req.employee_id}</td>
+      <td><span class="badge badge-info">${req.leave_type}</span></td>
+      <td>${req.start_date ? req.start_date.slice(0,10) : '—'}</td>
+      <td>${req.end_date ? req.end_date.slice(0,10) : '—'}</td>
+      <td>${req.days_requested}</td>
+      <td class="truncate" title="${req.reason}">${req.reason}</td>
+      <td><span class="badge badge-${statusColor[req.status]||'secondary'}">${req.status}</span></td>
+      <td>
+        <div class="action-btns">
+          ${req.status === 'pending' && canReview ? `
+            <button class="btn-icon-sm text-green" onclick="openReview('${req.id}','${req.employee_id}','${req.leave_type}','${req.start_date ? req.start_date.slice(0,10) : ''}','${req.end_date ? req.end_date.slice(0,10) : ''}','${req.days_requested}')">
+              <i class="fa-solid fa-clipboard-check"></i>
+            </button>` : ''}
+          ${req.status === 'pending' && isEmployee ? `
+            <button class="btn-icon-sm text-red" onclick="cancelLeave('${req.id}')">
+              <i class="fa-solid fa-ban"></i>
+            </button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  renderPagination('leavePagination', r.data.pagination, loadLeaves);
+}
+
+// Apply leave
+document.getElementById('applyLeaveBtn').onclick = () => document.getElementById('applyModal').style.display = 'flex';
+document.getElementById('closeApplyModal').onclick = () => document.getElementById('applyModal').style.display = 'none';
+document.getElementById('cancelApply').onclick = () => document.getElementById('applyModal').style.display = 'none';
+
+document.getElementById('submitLeave').addEventListener('click', async () => {
+  const btn = document.getElementById('submitLeave');
+  btn.querySelector('.btn-text').style.display = 'none';
+  btn.querySelector('.btn-loader').style.display = 'inline';
+  btn.disabled = true;
+
+  const payload = {
+    leave_type:  document.getElementById('leaveType').value,
+    start_date:  document.getElementById('leaveStart').value,
+    end_date:    document.getElementById('leaveEnd').value,
+    reason:      document.getElementById('leaveReason').value.trim(),
+    half_day:    document.getElementById('halfDay').checked,
+  };
+  if (!isEmployee) payload.employee_id = document.getElementById('leaveEmpId').value.trim();
+
+  const r = await API.post('/api/leave/requests', payload);
+  btn.querySelector('.btn-text').style.display = 'inline';
+  btn.querySelector('.btn-loader').style.display = 'none';
+  btn.disabled = false;
+
+  if (r.success) {
+    document.getElementById('applyModal').style.display = 'none';
+    window.showFlash('Leave request submitted!', 'success');
+    loadLeaves(1);
+  } else {
+    window.showFlash(r.message || 'Failed to submit.', 'error');
+  }
+});
+
+// Review leave
+function openReview(id, empId, type, start, end, days) {
+  reviewTarget = id;
+  document.getElementById('reviewDetail').innerHTML = `
+    <div class="detail-list">
+      <div class="detail-row"><span>Employee</span><span>${empId}</span></div>
+      <div class="detail-row"><span>Type</span><span class="badge badge-info">${type}</span></div>
+      <div class="detail-row"><span>Dates</span><span>${start} → ${end}</span></div>
+      <div class="detail-row"><span>Days</span><span>${days}</span></div>
+    </div>`;
+  document.getElementById('reviewComments').value = '';
+  document.getElementById('reviewModal').style.display = 'flex';
+}
+document.getElementById('cancelReview').onclick = () => document.getElementById('reviewModal').style.display = 'none';
+document.getElementById('approveBtn').onclick = () => submitReview('approved');
+document.getElementById('rejectBtn').onclick  = () => submitReview('rejected');
+
+async function submitReview(action) {
+  const r = await API.put(`/api/leave/requests/${reviewTarget}/review`, {
+    action, comments: document.getElementById('reviewComments').value
+  });
+  document.getElementById('reviewModal').style.display = 'none';
+  window.showFlash(r.success ? `Leave ${action}!` : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadLeaves(currentPage);
+}
+
+async function cancelLeave(id) {
+  if (!confirm('Cancel this leave request?')) return;
+  const r = await API.put(`/api/leave/requests/${id}/cancel`, {});
+  window.showFlash(r.success ? 'Cancelled.' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadLeaves(currentPage);
+}
+
+document.getElementById('statusFilter').addEventListener('change', () => loadLeaves(1));
+document.getElementById('typeFilter').addEventListener('change', () => loadLeaves(1));
+loadLeaves();
+</script>
+{% endblock %}

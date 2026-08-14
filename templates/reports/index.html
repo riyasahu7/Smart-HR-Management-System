@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+
+{% block content %}
+<div class="reports-page">
+
+  <div class="report-cards">
+
+    <!-- Attendance Report -->
+    <div class="report-card card">
+      <div class="report-icon blue"><i class="fa-solid fa-clock"></i></div>
+      <div class="report-info">
+        <h3>Attendance Report</h3>
+        <p>Monthly attendance summary by employee and department.</p>
+      </div>
+      <div class="report-controls">
+        <input type="month" id="attMonth" class="filter-select"/>
+        <select id="attDept" class="filter-select">
+          <option value="">All Depts</option>
+          <option>Engineering</option><option>Human Resources</option><option>Finance</option>
+          <option>Marketing</option><option>Sales</option><option>Operations</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="downloadReport('attendance')">
+          <i class="fa-solid fa-download"></i> Excel
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="previewReport('attendance')">
+          <i class="fa-solid fa-eye"></i> Preview
+        </button>
+      </div>
+    </div>
+
+    <!-- Leave Report -->
+    <div class="report-card card">
+      <div class="report-icon yellow"><i class="fa-solid fa-calendar-xmark"></i></div>
+      <div class="report-info">
+        <h3>Leave Report</h3>
+        <p>Annual leave utilisation across all leave types.</p>
+      </div>
+      <div class="report-controls">
+        <input type="number" id="leaveYear" class="filter-select" style="width:90px" placeholder="Year" value="2025"/>
+        <select id="leaveType" class="filter-select">
+          <option value="">All Types</option>
+          <option value="casual">Casual</option><option value="sick">Sick</option>
+          <option value="earned">Earned</option><option value="maternity">Maternity</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="downloadReport('leave')">
+          <i class="fa-solid fa-download"></i> Excel
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="previewReport('leave')">
+          <i class="fa-solid fa-eye"></i> Preview
+        </button>
+      </div>
+    </div>
+
+    <!-- Payroll Report -->
+    <div class="report-card card">
+      <div class="report-icon green"><i class="fa-solid fa-money-bill-wave"></i></div>
+      <div class="report-info">
+        <h3>Payroll Report</h3>
+        <p>Monthly salary breakdown with gross, deductions, and net.</p>
+      </div>
+      <div class="report-controls">
+        <input type="month" id="payMonth" class="filter-select"/>
+        <button class="btn btn-outline btn-sm" onclick="downloadReport('payroll')">
+          <i class="fa-solid fa-download"></i> Excel
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="previewReport('payroll')">
+          <i class="fa-solid fa-eye"></i> Preview
+        </button>
+      </div>
+    </div>
+
+    <!-- Headcount Report -->
+    <div class="report-card card">
+      <div class="report-icon purple"><i class="fa-solid fa-users"></i></div>
+      <div class="report-info">
+        <h3>Headcount Report</h3>
+        <p>Department-wise employee distribution and growth trend.</p>
+      </div>
+      <div class="report-controls">
+        <button class="btn btn-primary btn-sm" onclick="previewReport('headcount')">
+          <i class="fa-solid fa-eye"></i> View
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Preview Area -->
+  <div class="card" id="previewArea" style="display:none">
+    <div class="card-header">
+      <h3 id="previewTitle">Report Preview</h3>
+      <button class="btn-icon" id="closePreview"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="table-wrapper" id="previewContent">
+      <div class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+const now = new Date();
+document.getElementById('attMonth').value  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+document.getElementById('payMonth').value  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+document.getElementById('leaveYear').value = now.getFullYear();
+
+function parseMonth(id) {
+  const [y, m] = document.getElementById(id).value.split('-');
+  return { year: parseInt(y), month: parseInt(m) };
+}
+
+async function previewReport(type) {
+  document.getElementById('previewArea').style.display = 'block';
+  document.getElementById('previewContent').innerHTML = '<div class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
+
+  let data, headers;
+  if (type === 'attendance') {
+    const { year, month } = parseMonth('attMonth');
+    const dept = document.getElementById('attDept').value;
+    const r = await API.get(`/api/reports/attendance?year=${year}&month=${month}${dept?'&department='+dept:''}`);
+    data = r.success ? r.data : [];
+    headers = ['emp_id','name','department','designation','present','absent','half_day','work_from_home','total_work_hours'];
+    document.getElementById('previewTitle').textContent = `Attendance — ${month}/${year}`;
+  } else if (type === 'leave') {
+    const year = document.getElementById('leaveYear').value;
+    const lt   = document.getElementById('leaveType').value;
+    const r = await API.get(`/api/reports/leave?year=${year}${lt?'&leave_type='+lt:''}`);
+    data = r.success ? r.data : [];
+    headers = ['emp_id','name','department','leave_type','start_date','end_date','days','status'];
+    document.getElementById('previewTitle').textContent = `Leave Report — ${year}`;
+  } else if (type === 'payroll') {
+    const { year, month } = parseMonth('payMonth');
+    const r = await API.get(`/api/reports/payroll?year=${year}&month=${month}`);
+    data = r.success ? r.data : [];
+    headers = ['employee_name','department','designation','worked_days','gross_salary','total_deductions','net_salary','status'];
+    document.getElementById('previewTitle').textContent = `Payroll — ${month}/${year}`;
+  } else if (type === 'headcount') {
+    const r = await API.get('/api/reports/headcount');
+    data = r.success ? r.data.by_department : [];
+    headers = ['_id','total','active','avg_salary'];
+    document.getElementById('previewTitle').textContent = 'Headcount by Department';
+  }
+
+  if (!data.length) {
+    document.getElementById('previewContent').innerHTML = '<p class="empty-state">No data available for this report.</p>';
+    return;
+  }
+
+  const table = `
+    <table class="data-table">
+      <thead><tr>${headers.map(h => `<th>${h.replace(/_/g,' ').toUpperCase()}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${data.slice(0,50).map(row =>
+          `<tr>${headers.map(h => `<td>${row[h] ?? '—'}</td>`).join('')}</tr>`
+        ).join('')}
+      </tbody>
+    </table>
+    ${data.length > 50 ? `<p class="table-note">Showing first 50 of ${data.length} rows. Download Excel for full report.</p>` : ''}
+  `;
+  document.getElementById('previewContent').innerHTML = table;
+}
+
+function downloadReport(type) {
+  if (type === 'attendance') {
+    const { year, month } = parseMonth('attMonth');
+    const dept = document.getElementById('attDept').value;
+    window.open(`/api/reports/attendance?year=${year}&month=${month}&format=excel${dept?'&department='+dept:''}`, '_blank');
+  } else if (type === 'leave') {
+    const year = document.getElementById('leaveYear').value;
+    const lt   = document.getElementById('leaveType').value;
+    window.open(`/api/reports/leave?year=${year}&format=excel${lt?'&leave_type='+lt:''}`, '_blank');
+  } else if (type === 'payroll') {
+    const { year, month } = parseMonth('payMonth');
+    window.open(`/api/reports/payroll?year=${year}&month=${month}&format=excel`, '_blank');
+  }
+}
+
+document.getElementById('closePreview').addEventListener('click', () => {
+  document.getElementById('previewArea').style.display = 'none';
+});
+</script>
+{% endblock %}

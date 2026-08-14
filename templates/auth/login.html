@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login — Smart HR Management</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+</head>
+<body class="auth-body">
+
+<div class="auth-container">
+  <!-- Left panel -->
+  <div class="auth-left">
+    <div class="auth-brand">
+      <i class="fa-solid fa-building-user"></i>
+      <h1>Smart HR</h1>
+    </div>
+    <p class="auth-tagline">Empowering people. Simplifying HR.</p>
+    <ul class="auth-features">
+      <li><i class="fa-solid fa-check-circle"></i> Role-based access control</li>
+      <li><i class="fa-solid fa-check-circle"></i> Real-time attendance tracking</li>
+      <li><i class="fa-solid fa-check-circle"></i> Automated payroll processing</li>
+      <li><i class="fa-solid fa-check-circle"></i> AI-powered HR assistant</li>
+      <li><i class="fa-solid fa-check-circle"></i> Performance & goal tracking</li>
+    </ul>
+  </div>
+
+  <!-- Right panel / form -->
+  <div class="auth-right">
+    <div class="auth-card">
+      <h2>Welcome back</h2>
+      <p class="auth-subtitle">Sign in to your HR portal</p>
+
+      <div class="alert alert-error" id="loginError" style="display:none"></div>
+
+      <form id="loginForm" novalidate>
+        <div class="form-group">
+          <label for="email"><i class="fa-solid fa-envelope"></i> Email</label>
+          <input type="email" id="email" name="email" placeholder="you@company.com"
+                 required autocomplete="email"/>
+          <span class="field-error" id="emailError"></span>
+        </div>
+
+        <div class="form-group">
+          <label for="password"><i class="fa-solid fa-lock"></i> Password</label>
+          <div class="input-with-icon">
+            <input type="password" id="password" name="password"
+                   placeholder="Enter your password" required autocomplete="current-password"/>
+            <button type="button" class="toggle-password" data-target="password">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <span class="field-error" id="passwordError"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">
+          <span class="btn-text">Sign In</span>
+          <span class="btn-loader" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+        </button>
+      </form>
+
+      <p class="auth-hint">
+        <i class="fa-solid fa-circle-info"></i>
+        Use your company email and provided credentials. Contact HR if you need access.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Redirect if already logged in
+  if (localStorage.getItem('access_token')) {
+    window.location.href = '/dashboard';
+  }
+
+  document.querySelectorAll('.toggle-password').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = document.getElementById(btn.dataset.target);
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye';
+      }
+    });
+  });
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    const errorBox = document.getElementById('loginError');
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    errorBox.style.display = 'none';
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loader').style.display = 'inline';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        localStorage.setItem('access_token', data.data.access_token);
+        localStorage.setItem('refresh_token', data.data.refresh_token);
+        localStorage.setItem('user', JSON.stringify(data.data.user));
+        window.location.href = '/dashboard';
+      } else {
+        errorBox.textContent = data.message || 'Login failed. Please try again.';
+        errorBox.style.display = 'block';
+      }
+    } catch (err) {
+      errorBox.textContent = 'Network error. Please check your connection.';
+      errorBox.style.display = 'block';
+    } finally {
+      btn.querySelector('.btn-text').style.display = 'inline';
+      btn.querySelector('.btn-loader').style.display = 'none';
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

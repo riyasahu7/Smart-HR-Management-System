@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+{% block title %}Performance{% endblock %}
+{% block page_title %}Performance Management{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="tabs-bar">
+  <button class="tab-btn active" data-tab="reviews">Reviews</button>
+  <button class="tab-btn" data-tab="goals">Goals</button>
+  <button class="tab-btn" data-tab="analytics">Analytics</button>
+</div>
+
+<!-- REVIEWS TAB -->
+<div class="tab-pane active" id="tab-reviews">
+  <div class="page-toolbar">
+    <div class="toolbar-left">
+      <select id="reviewStatusFilter" class="filter-select">
+        <option value="">All Status</option>
+        <option value="draft">Draft</option>
+        <option value="submitted">Submitted</option>
+        <option value="acknowledged">Acknowledged</option>
+      </select>
+      <select id="reviewTypeFilter" class="filter-select">
+        <option value="">All Types</option>
+        <option value="annual">Annual</option>
+        <option value="mid_year">Mid-Year</option>
+        <option value="quarterly">Quarterly</option>
+        <option value="probation">Probation</option>
+      </select>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn btn-primary" id="newReviewBtn">
+        <i class="fa-solid fa-plus"></i> New Review
+      </button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr><th>Employee</th><th>Type</th><th>Period</th><th>Rating</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="reviewsBody">
+          <tr><td colspan="6" class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-pagination" id="reviewsPagination"></div>
+  </div>
+</div>
+
+<!-- GOALS TAB -->
+<div class="tab-pane" id="tab-goals">
+  <div class="page-toolbar">
+    <div class="toolbar-left">
+      <select id="goalStatusFilter" class="filter-select">
+        <option value="">All Status</option>
+        <option value="not_started">Not Started</option>
+        <option value="in_progress">In Progress</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn btn-primary" id="newGoalBtn">
+        <i class="fa-solid fa-plus"></i> New Goal
+      </button>
+    </div>
+  </div>
+  <div class="goals-grid" id="goalsGrid">
+    <div class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+  </div>
+</div>
+
+<!-- ANALYTICS TAB -->
+<div class="tab-pane" id="tab-analytics">
+  <div class="analytics-row">
+    <div class="chart-card">
+      <div class="chart-header"><h3>Rating Trend</h3></div>
+      <div class="chart-body"><canvas id="ratingTrendChart"></canvas></div>
+    </div>
+    <div class="card analytics-stats" id="analyticsStats">
+      <div class="card-header"><h3>AI Insights</h3></div>
+      <div id="aiInsightText" class="insight-text">
+        <button class="btn btn-primary btn-sm" id="loadInsightBtn">
+          <i class="fa-solid fa-robot"></i> Get AI Insights
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Review Modal -->
+<div class="modal-overlay" id="reviewModal" style="display:none">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-star"></i> Create Performance Review</h3>
+      <button class="btn-icon" id="closeReviewModal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Employee ID *</label>
+          <input type="text" id="revEmpId" placeholder="Employee MongoDB ID"/>
+        </div>
+        <div class="form-group">
+          <label>Review Type *</label>
+          <select id="revType">
+            <option value="annual">Annual</option>
+            <option value="mid_year">Mid-Year</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="probation">Probation</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Period Start *</label>
+          <input type="date" id="revStart"/>
+        </div>
+        <div class="form-group">
+          <label>Period End *</label>
+          <input type="date" id="revEnd"/>
+        </div>
+      </div>
+      <h4>Ratings (1 = Poor, 5 = Excellent)</h4>
+      <div class="ratings-grid">
+        <div class="rating-item"><label>Technical Skills</label><input type="range" id="r_technical" min="1" max="5" value="3"/><span id="r_technical_val">3</span></div>
+        <div class="rating-item"><label>Communication</label><input type="range" id="r_comm" min="1" max="5" value="3"/><span id="r_comm_val">3</span></div>
+        <div class="rating-item"><label>Teamwork</label><input type="range" id="r_team" min="1" max="5" value="3"/><span id="r_team_val">3</span></div>
+        <div class="rating-item"><label>Leadership</label><input type="range" id="r_lead" min="1" max="5" value="3"/><span id="r_lead_val">3</span></div>
+        <div class="rating-item"><label>Punctuality</label><input type="range" id="r_punct" min="1" max="5" value="3"/><span id="r_punct_val">3</span></div>
+        <div class="rating-item"><label>Problem Solving</label><input type="range" id="r_prob" min="1" max="5" value="3"/><span id="r_prob_val">3</span></div>
+      </div>
+      <div class="form-group">
+        <label>Comments</label>
+        <textarea id="revComments" rows="3" placeholder="Overall review comments…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelReviewModal">Cancel</button>
+      <button class="btn btn-primary" id="saveReview">Save Review</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Goal Modal -->
+<div class="modal-overlay" id="goalModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-bullseye"></i> New Goal</h3>
+      <button class="btn-icon" id="closeGoalModal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Title *</label>
+        <input type="text" id="goalTitle" placeholder="Goal title"/>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="goalDesc" rows="2" placeholder="Describe the goal…"></textarea>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Target Date *</label>
+          <input type="date" id="goalDate"/>
+        </div>
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="goalPriority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelGoalModal">Cancel</button>
+      <button class="btn btn-primary" id="saveGoal">Save Goal</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+const isEmployee = user.role === 'employee';
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'goals') loadGoals();
+    if (btn.dataset.tab === 'analytics') loadAnalytics();
+  });
+});
+
+// Range sliders live display
+['technical','comm','team','lead','punct','prob'].forEach(id => {
+  const el = document.getElementById('r_' + id);
+  el.addEventListener('input', () => document.getElementById('r_' + id + '_val').textContent = el.value);
+});
+
+// Reviews
+async function loadReviews(page = 1) {
+  const status = document.getElementById('reviewStatusFilter').value;
+  const type   = document.getElementById('reviewTypeFilter').value;
+
+  let url = isEmployee
+    ? `/api/performance/employee/${user.employee_id}/reviews?`
+    : `/api/performance/reviews?page=${page}&per_page=20`;
+  if (status) url += `&status=${status}`;
+  if (type)   url += `&review_type=${type}`;
+
+  const r = await API.get(url);
+  const tbody = document.getElementById('reviewsBody');
+  const reviews = isEmployee ? (r.success ? r.data : []) : (r.success ? r.data.reviews : []);
+
+  if (!reviews.length) { tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No reviews found.</td></tr>'; return; }
+
+  const sc = {draft:'secondary', submitted:'info', acknowledged:'success'};
+  const stars = n => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n));
+  tbody.innerHTML = reviews.map(rev => `
+    <tr>
+      <td>${rev.employee_id}</td>
+      <td><span class="badge badge-info">${rev.review_type}</span></td>
+      <td>${rev.review_period_start ? rev.review_period_start.slice(0,10) : '—'} → ${rev.review_period_end ? rev.review_period_end.slice(0,10) : '—'}</td>
+      <td><span class="star-rating" title="${rev.average_rating}/5">${stars(rev.average_rating||0)}</span> ${rev.average_rating || 0}</td>
+      <td><span class="badge badge-${sc[rev.status]||'secondary'}">${rev.status}</span></td>
+      <td>
+        <div class="action-btns">
+          ${rev.status === 'submitted' && isEmployee ? `
+            <button class="btn btn-sm btn-success" onclick="acknowledge('${rev.id}')">
+              <i class="fa-solid fa-check"></i> Acknowledge
+            </button>` : ''}
+          ${!isEmployee && rev.status === 'draft' ? `
+            <button class="btn-icon-sm" onclick="submitReview('${rev.id}')" title="Submit">
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  if (!isEmployee && r.data.pagination) renderPagination('reviewsPagination', r.data.pagination, loadReviews);
+}
+
+async function acknowledge(id) {
+  const r = await API.post(`/api/performance/reviews/${id}/acknowledge`, {});
+  window.showFlash(r.success ? 'Review acknowledged!' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadReviews();
+}
+
+async function submitReview(id) {
+  const r = await API.post(`/api/performance/reviews/${id}/submit`, {});
+  window.showFlash(r.success ? 'Review submitted!' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadReviews();
+}
+
+// Create review modal
+document.getElementById('newReviewBtn').onclick = () => document.getElementById('reviewModal').style.display = 'flex';
+document.getElementById('closeReviewModal').onclick = () => document.getElementById('reviewModal').style.display = 'none';
+document.getElementById('cancelReviewModal').onclick = () => document.getElementById('reviewModal').style.display = 'none';
+if (isEmployee) document.getElementById('newReviewBtn').style.display = 'none';
+
+document.getElementById('saveReview').addEventListener('click', async () => {
+  const payload = {
+    employee_id: document.getElementById('revEmpId').value.trim(),
+    review_type: document.getElementById('revType').value,
+    review_period_start: document.getElementById('revStart').value,
+    review_period_end:   document.getElementById('revEnd').value,
+    ratings: {
+      technical_skills: parseInt(document.getElementById('r_technical').value),
+      communication:    parseInt(document.getElementById('r_comm').value),
+      teamwork:         parseInt(document.getElementById('r_team').value),
+      leadership:       parseInt(document.getElementById('r_lead').value),
+      punctuality:      parseInt(document.getElementById('r_punct').value),
+      problem_solving:  parseInt(document.getElementById('r_prob').value),
+    },
+    comments: document.getElementById('revComments').value,
+  };
+  const r = await API.post('/api/performance/reviews', payload);
+  document.getElementById('reviewModal').style.display = 'none';
+  window.showFlash(r.success ? 'Review created!' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadReviews();
+});
+
+document.getElementById('reviewStatusFilter').addEventListener('change', loadReviews);
+document.getElementById('reviewTypeFilter').addEventListener('change', loadReviews);
+
+// Goals
+async function loadGoals() {
+  const status = document.getElementById('goalStatusFilter').value;
+  const empId  = user.employee_id;
+  let url = `/api/performance/goals${empId ? '' : '?employee_id=all'}`;
+  if (status) url += (url.includes('?') ? '&' : '?') + `status=${status}`;
+
+  const r = await API.get(url);
+  const grid = document.getElementById('goalsGrid');
+  if (!r.success || !r.data.length) {
+    grid.innerHTML = '<p class="empty-state">No goals found. Create your first goal!</p>';
+    return;
+  }
+  const prioColor = { low:'info', medium:'warning', high:'danger' };
+  const stColor   = { not_started:'secondary', in_progress:'info', completed:'success', cancelled:'danger' };
+  grid.innerHTML = r.data.map(g => `
+    <div class="goal-card">
+      <div class="goal-card-header">
+        <h4>${g.title}</h4>
+        <span class="badge badge-${prioColor[g.priority]||'secondary'}">${g.priority}</span>
+      </div>
+      <p class="goal-desc">${g.description || '—'}</p>
+      <div class="goal-progress">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" style="width:${g.progress_percentage||0}%"></div>
+        </div>
+        <span>${g.progress_percentage||0}%</span>
+      </div>
+      <div class="goal-footer">
+        <span class="badge badge-${stColor[g.status]||'secondary'}">${g.status}</span>
+        <span class="goal-date"><i class="fa-solid fa-calendar"></i> ${g.target_date ? g.target_date.slice(0,10) : '—'}</span>
+      </div>
+      ${g.status !== 'completed' ? `
+        <div class="goal-update">
+          <input type="range" min="0" max="100" value="${g.progress_percentage||0}" class="goal-slider" id="gs_${g.id}"/>
+          <button class="btn btn-sm btn-outline" onclick="updateGoalProgress('${g.id}')">Update</button>
+        </div>` : ''}
+    </div>
+  `).join('');
+}
+
+async function updateGoalProgress(id) {
+  const val = parseInt(document.getElementById('gs_' + id).value);
+  const status = val >= 100 ? 'completed' : val > 0 ? 'in_progress' : 'not_started';
+  const r = await API.put(`/api/performance/goals/${id}`, { progress_percentage: val, status });
+  window.showFlash(r.success ? 'Goal updated!' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadGoals();
+}
+
+document.getElementById('newGoalBtn').onclick = () => document.getElementById('goalModal').style.display = 'flex';
+document.getElementById('closeGoalModal').onclick = () => document.getElementById('goalModal').style.display = 'none';
+document.getElementById('cancelGoalModal').onclick = () => document.getElementById('goalModal').style.display = 'none';
+document.getElementById('goalStatusFilter').addEventListener('change', loadGoals);
+
+document.getElementById('saveGoal').addEventListener('click', async () => {
+  const payload = {
+    title:       document.getElementById('goalTitle').value.trim(),
+    description: document.getElementById('goalDesc').value.trim(),
+    target_date: document.getElementById('goalDate').value,
+    priority:    document.getElementById('goalPriority').value,
+  };
+  const r = await API.post('/api/performance/goals', payload);
+  document.getElementById('goalModal').style.display = 'none';
+  window.showFlash(r.success ? 'Goal created!' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadGoals();
+});
+
+// Analytics
+let ratingChart = null;
+async function loadAnalytics() {
+  const empId = user.employee_id;
+  if (!empId) return;
+  const r = await API.get(`/api/performance/employee/${empId}/analytics`);
+  if (!r.success || !r.data.trend.length) return;
+  const trend = r.data.trend;
+
+  if (ratingChart) ratingChart.destroy();
+  ratingChart = new Chart(document.getElementById('ratingTrendChart'), {
+    type: 'line',
+    data: {
+      labels: trend.map(t => t.review_type + ' ' + (t.period_start ? t.period_start.slice(0,7) : '')),
+      datasets: [{
+        label: 'Avg Rating',
+        data: trend.map(t => t.average_rating),
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59,130,246,0.1)',
+        fill: true, tension: 0.3,
+      }],
+    },
+    options: {
+      responsive: true,
+      scales: { y: { min: 0, max: 5, ticks: { stepSize: 1 } } },
+    },
+  });
+}
+
+document.getElementById('loadInsightBtn').addEventListener('click', async () => {
+  const r = await API.get('/api/ai/insights?type=performance');
+  if (r.success) {
+    document.getElementById('aiInsightText').innerHTML = `<p class="insight-text">${r.data.insight}</p>`;
+  }
+});
+
+loadReviews();
+</script>
+{% endblock %}
