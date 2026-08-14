@@ -2,7 +2,9 @@ import os
 from datetime import timedelta
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from project root regardless of working directory
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(_ROOT, ".env"))
 
 
 class Config:

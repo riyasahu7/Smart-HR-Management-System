@@ -4,6 +4,7 @@ from flask_pymongo import PyMongo
 from flask_bcrypt import Bcrypt
 from flask_mail import Mail
 from flask_cors import CORS
+import os
 from config import config
 
 mongo = PyMongo()
@@ -11,12 +12,18 @@ bcrypt = Bcrypt()
 jwt = JWTManager()
 mail = Mail()
 
+# Resolve absolute paths regardless of working directory (important for Vercel)
+_HERE = os.path.dirname(os.path.abspath(__file__))          # app/
+_ROOT = os.path.dirname(_HERE)                               # project root
+_TEMPLATES = os.path.join(_ROOT, "templates")
+_STATIC    = os.path.join(_ROOT, "static")
+
 
 def create_app(config_name="default"):
     app = Flask(
         __name__,
-        template_folder="../templates",
-        static_folder="../static",
+        template_folder=_TEMPLATES,
+        static_folder=_STATIC,
     )
     app.config.from_object(config[config_name])
 

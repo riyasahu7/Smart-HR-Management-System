@@ -6,7 +6,15 @@
       "src": "api/index.py",
       "use": "@vercel/python",
       "config": {
-        "maxLambdaSize": "50mb"
+        "maxLambdaSize": "50mb",
+        "runtime": "python3.11",
+        "includeFiles": [
+          "app/**",
+          "templates/**",
+          "static/**",
+          "config.py",
+          "run.py"
+        ]
       }
     }
   ],
