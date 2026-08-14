@@ -25,11 +25,20 @@ def _emp_col():
     return mongo.db[EmployeeModel.COLLECTION]
 
 
+def _is_serverless():
+    """Vercel and other serverless platforms have read-only filesystems."""
+    return os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+
+
 def _get_upload_dir():
-    upload_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        "static", "uploads"
-    )
+    # On Vercel /tmp is the only writable dir (ephemeral — lost on redeploy)
+    if _is_serverless():
+        upload_dir = "/tmp/smart_hr_uploads"
+    else:
+        upload_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "static", "uploads"
+        )
     os.makedirs(upload_dir, exist_ok=True)
     return upload_dir
 

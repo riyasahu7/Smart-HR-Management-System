@@ -38,6 +38,10 @@ logs/
 # Uploads / generated files
 uploads/
 instance/
+static/uploads/*
+static/uploads/photos/*
+!static/uploads/.gitkeep
+!static/uploads/photos/.gitkeep
 
 # Test artifacts
 .pytest_cache/
