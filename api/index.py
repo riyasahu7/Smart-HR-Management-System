@@ -1,39 +1,42 @@
 """
-Vercel serverless entry point.
+Vercel serverless entry point — with full error trapping.
 """
 import sys
 import os
+import traceback
 
-# Absolute path to project root (api/index.py → api/ → root)
+# Absolute project root
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-# Load .env for local/preview — production uses Vercel env vars
-try:
-    from dotenv import load_dotenv
-    load_dotenv(os.path.join(ROOT, ".env"))
-except Exception:
-    pass
+# Minimal Flask app for error reporting — always works
+from flask import Flask, jsonify
+_err_app = Flask(__name__)
 
-# Create the Flask app — this is what Vercel uses as the WSGI app
-from app import create_app  # noqa: E402
-
-app = create_app("production")
-
-
-# Debug route — shows environment info (remove after confirming deploy works)
-@app.route("/_debug")
-def debug():
-    from flask import jsonify
-    import sys
+@_err_app.route("/", defaults={"path": ""})
+@_err_app.route("/<path:path>")
+def catch_all(path):
     return jsonify({
-        "status": "ok",
-        "python": sys.version,
+        "error": "App failed to start",
+        "detail": _BOOT_ERROR,
         "root": ROOT,
-        "templates": app.template_folder,
-        "static": app.static_folder,
-        "env": os.environ.get("FLASK_ENV"),
-        "mongo_set": bool(os.environ.get("MONGO_URI")),
-        "secret_set": bool(os.environ.get("SECRET_KEY")),
-        "routes": len(list(app.url_map.iter_rules())),
-    })
+        "sys_path": sys.path[:5],
+    }), 500
+
+_BOOT_ERROR = None
+
+try:
+    # Load .env (local dev only — Vercel uses dashboard env vars)
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(os.path.join(ROOT, ".env"))
+    except Exception:
+        pass
+
+    # Import and create the real app
+    from app import create_app
+    app = create_app("production")
+
+except Exception:
+    _BOOT_ERROR = traceback.format_exc()
+    app = _err_app  # Serve error details so we can see what broke
