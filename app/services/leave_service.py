@@ -150,6 +150,34 @@ def review_leave(request_id, reviewer_id, action, comments=""):
             )
 
     doc = _requests().find_one({"_id": ObjectId(request_id)})
+
+    # Send email + in-app notification
+    try:
+        from app import mongo as m
+        from app.models.employee_model import EmployeeModel
+        from app.services.notification_service import notify_leave_status, create_notification
+        emp = m.db[EmployeeModel.COLLECTION].find_one({"_id": ObjectId(req["employee_id"])})
+        if emp and emp.get("email"):
+            notify_leave_status(
+                employee_email=emp["email"],
+                employee_name=emp.get("full_name", ""),
+                leave_type=req.get("leave_type", ""),
+                start_date=req["start_date"].strftime("%Y-%m-%d") if req.get("start_date") else "",
+                end_date=req["end_date"].strftime("%Y-%m-%d") if req.get("end_date") else "",
+                days=req.get("days_requested", 0),
+                status=action,
+                comments=comments,
+            )
+        create_notification(
+            recipient_id=req["employee_id"],
+            title=f"Leave Request {action.title()}",
+            message=f"Your {req.get('leave_type','').title()} leave has been {action}.",
+            notif_type=f"leave_{action}",
+            link="/leave",
+        )
+    except Exception:
+        pass
+
     return LeaveRequestModel.to_dict(doc), None
 
 

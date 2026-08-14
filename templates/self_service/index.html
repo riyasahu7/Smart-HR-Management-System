@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}My Portal{% endblock %}
+{% block page_title %}My Self-Service Portal{% endblock %}
+
+{% block content %}
+<div class="self-service-page">
+
+  <!-- Profile Card -->
+  <div class="ss-grid">
+    <div class="card ss-profile-card" id="profileCard">
+      <div class="profile-photo-wrap">
+        <img id="profilePhoto" src="/static/img/default-avatar.png" alt="Photo"
+             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2280%22><circle cx=%2240%22 cy=%2240%22 r=%2240%22 fill=%22%233b82f6%22/><text x=%2240%22 y=%2248%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2232%22 font-family=%22Arial%22 id=%22avatarInitial%22>U</text></svg>'"/>
+        <label class="photo-upload-btn" title="Change photo">
+          <i class="fa-solid fa-camera"></i>
+          <input type="file" id="photoInput" accept="image/*" style="display:none"/>
+        </label>
+      </div>
+      <div class="ss-profile-info">
+        <h2 id="ssName">—</h2>
+        <p id="ssDesig" class="text-muted">—</p>
+        <p id="ssDept" class="text-muted">—</p>
+        <div id="ssStatus"></div>
+      </div>
+      <div class="ss-profile-details" id="ssDetails"></div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="ss-stats-col">
+      <div class="stat-card green">
+        <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+        <div class="stat-info"><span class="stat-value" id="ssPresent">—</span><span class="stat-label">Present This Month</span></div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon"><i class="fa-solid fa-xmark"></i></div>
+        <div class="stat-info"><span class="stat-value" id="ssAbsent">—</span><span class="stat-label">Absent This Month</span></div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+        <div class="stat-info"><span class="stat-value" id="ssHours">—</span><span class="stat-label">Total Hours</span></div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="stat-icon"><i class="fa-solid fa-calendar-minus"></i></div>
+        <div class="stat-info"><span class="stat-value" id="ssCasual">—</span><span class="stat-label">Casual Leave Left</span></div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+        <div class="stat-info"><span class="stat-value" id="ssNet">—</span><span class="stat-label">Last Net Salary</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-bar">
+    <button class="tab-btn active" data-tab="edit-profile">Edit Profile</button>
+    <button class="tab-btn" data-tab="att-calendar">Attendance Calendar</button>
+    <button class="tab-btn" data-tab="payslips">Payslips</button>
+  </div>
+
+  <!-- Edit Profile Tab -->
+  <div class="tab-pane active" id="tab-edit-profile">
+    <div class="card form-card">
+      <div class="card-header"><h3>Update Your Information</h3></div>
+      <form id="profileForm">
+        <div class="form-section">
+          <h4 class="form-section-title">Contact</h4>
+          <div class="form-grid">
+            <div class="form-group"><label>Phone</label><input type="text" id="upPhone"/></div>
+            <div class="form-group"><label>Date of Birth</label><input type="date" id="upDob"/></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <h4 class="form-section-title">Address</h4>
+          <div class="form-grid">
+            <div class="form-group full-width"><label>Street</label><input type="text" id="upStreet"/></div>
+            <div class="form-group"><label>City</label><input type="text" id="upCity"/></div>
+            <div class="form-group"><label>State</label><input type="text" id="upState"/></div>
+            <div class="form-group"><label>PIN</label><input type="text" id="upPin"/></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <h4 class="form-section-title">Emergency Contact</h4>
+          <div class="form-grid">
+            <div class="form-group"><label>Name</label><input type="text" id="upEcName"/></div>
+            <div class="form-group"><label>Phone</label><input type="text" id="upEcPhone"/></div>
+            <div class="form-group"><label>Relation</label><input type="text" id="upEcRel"/></div>
+          </div>
+        </div>
+        <div class="form-section">
+          <h4 class="form-section-title">Bank Details</h4>
+          <div class="form-grid">
+            <div class="form-group"><label>Account Number</label><input type="text" id="upBankAcc"/></div>
+            <div class="form-group"><label>Bank Name</label><input type="text" id="upBankName"/></div>
+            <div class="form-group"><label>IFSC</label><input type="text" id="upIfsc"/></div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Attendance Calendar Tab -->
+  <div class="tab-pane" id="tab-att-calendar">
+    <div class="card">
+      <div class="card-header">
+        <h3>Attendance Calendar</h3>
+        <div class="toolbar-left">
+          <input type="month" id="calMonth" class="filter-select"/>
+        </div>
+      </div>
+      <div class="calendar-wrap" id="calendarWrap">
+        <div class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+      </div>
+      <div class="calendar-legend">
+        <span class="legend-item"><span class="leg-dot present"></span>Present</span>
+        <span class="legend-item"><span class="leg-dot absent"></span>Absent</span>
+        <span class="legend-item"><span class="leg-dot half_day"></span>Half Day</span>
+        <span class="legend-item"><span class="leg-dot work_from_home"></span>WFH</span>
+        <span class="legend-item"><span class="leg-dot on_leave"></span>On Leave</span>
+        <span class="legend-item"><span class="leg-dot holiday"></span>Weekend</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payslips Tab -->
+  <div class="tab-pane" id="tab-payslips">
+    <div class="card">
+      <div class="card-header"><h3>My Payslips</h3></div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>Period</th><th>Basic</th><th>Gross</th><th>Deductions</th><th>Net</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="payslipsBody">
+            <tr><td colspan="7" class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+const now = new Date();
+document.getElementById('calMonth').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+// Load dashboard summary
+async function loadSummary() {
+  const r = await API.get('/api/self/dashboard');
+  if (!r.success) return;
+  const d = r.data;
+  const att = d.attendance_this_month || {};
+  document.getElementById('ssPresent').textContent = att.present ?? '—';
+  document.getElementById('ssAbsent').textContent  = att.absent ?? '—';
+  document.getElementById('ssHours').textContent   = (att.total_work_hours ?? '—') + 'h';
+  const casual = d.leave_balance?.casual || {};
+  document.getElementById('ssCasual').textContent  = casual.remaining ?? '—';
+  const pay = d.latest_payslip;
+  document.getElementById('ssNet').textContent = pay ? '₹' + (pay.net_salary || 0).toLocaleString('en-IN') : '—';
+}
+
+// Load profile
+async function loadProfile() {
+  const r = await API.get('/api/self/profile');
+  if (!r.success) return;
+  const e = r.data;
+  document.getElementById('ssName').textContent  = e.full_name || '—';
+  document.getElementById('ssDesig').textContent = e.designation || '—';
+  document.getElementById('ssDept').textContent  = e.department || '—';
+  document.getElementById('ssStatus').innerHTML  = `<span class="badge badge-${e.status==='active'?'success':'danger'}">${e.status}</span>`;
+  document.getElementById('ssDetails').innerHTML = `
+    <div class="detail-list">
+      <div class="detail-row"><span>Email</span><span>${e.email||'—'}</span></div>
+      <div class="detail-row"><span>Phone</span><span>${e.phone||'—'}</span></div>
+      <div class="detail-row"><span>Emp ID</span><span>${e.emp_id||'—'}</span></div>
+      <div class="detail-row"><span>Joined</span><span>${e.date_of_joining?e.date_of_joining.slice(0,10):'—'}</span></div>
+    </div>`;
+  if (e.photo_url) document.getElementById('profilePhoto').src = e.photo_url;
+
+  // Pre-fill edit form
+  const set = (id, v) => { if (document.getElementById(id)) document.getElementById(id).value = v||''; };
+  set('upPhone', e.phone);
+  set('upDob', e.date_of_birth ? e.date_of_birth.slice(0,10) : '');
+  if (e.address) { set('upStreet', e.address.street); set('upCity', e.address.city); set('upState', e.address.state); set('upPin', e.address.pin); }
+  if (e.emergency_contact) { set('upEcName', e.emergency_contact.name); set('upEcPhone', e.emergency_contact.phone); set('upEcRel', e.emergency_contact.relation); }
+  if (e.bank_details) { set('upBankAcc', e.bank_details.account_no); set('upBankName', e.bank_details.bank_name); set('upIfsc', e.bank_details.ifsc); }
+}
+
+// Photo upload
+document.getElementById('photoInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const fd = new FormData(); fd.append('photo', file);
+  const token = localStorage.getItem('access_token');
+  const res = await fetch('/api/self/profile/photo', { method:'POST', headers:{Authorization:`Bearer ${token}`}, body: fd });
+  const data = await res.json();
+  if (data.success) { document.getElementById('profilePhoto').src = data.data.photo_url + '?t=' + Date.now(); window.showFlash('Photo updated!', 'success'); }
+  else window.showFlash(data.message, 'error');
+});
+
+// Update profile
+document.getElementById('profileForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const payload = {
+    phone: document.getElementById('upPhone').value,
+    date_of_birth: document.getElementById('upDob').value || null,
+    address: { street: document.getElementById('upStreet').value, city: document.getElementById('upCity').value, state: document.getElementById('upState').value, pin: document.getElementById('upPin').value },
+    emergency_contact: { name: document.getElementById('upEcName').value, phone: document.getElementById('upEcPhone').value, relation: document.getElementById('upEcRel').value },
+    bank_details: { account_no: document.getElementById('upBankAcc').value, bank_name: document.getElementById('upBankName').value, ifsc: document.getElementById('upIfsc').value },
+  };
+  const r = await API.put('/api/self/profile', payload);
+  window.showFlash(r.success ? 'Profile updated!' : r.message, r.success ? 'success' : 'error');
+});
+
+// Attendance Calendar
+const statusColors = { present:'#10b981', absent:'#ef4444', half_day:'#f59e0b', work_from_home:'#3b82f6', on_leave:'#8b5cf6', holiday:'#94a3b8' };
+async function loadCalendar() {
+  const [yr, mo] = document.getElementById('calMonth').value.split('-');
+  const r = await API.get(`/api/self/attendance/calendar?year=${yr}&month=${parseInt(mo)}`);
+  const wrap = document.getElementById('calendarWrap');
+  if (!r.success) { wrap.innerHTML = '<p class="empty-state">Could not load calendar.</p>'; return; }
+
+  const { calendar, summary } = r.data;
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const firstDay = new Date(parseInt(yr), parseInt(mo)-1, 1).getDay();
+
+  let html = `<div class="att-cal-summary">
+    <span><b>${summary.present}</b> Present</span>
+    <span><b>${summary.absent}</b> Absent</span>
+    <span><b>${summary.half_day}</b> Half Day</span>
+    <span><b>${summary.work_from_home}</b> WFH</span>
+    <span><b>${summary.total_work_hours}h</b> Total</span>
+  </div>
+  <div class="att-calendar">
+    ${days.map(d => `<div class="cal-day-name">${d}</div>`).join('')}
+    ${Array(firstDay).fill('<div class="cal-empty"></div>').join('')}
+    ${calendar.map(day => `
+      <div class="cal-day ${day.is_weekend ? 'weekend' : ''}" style="border-top: 3px solid ${statusColors[day.status]||'#e2e8f0'}" title="${day.status}${day.check_in?' · In: '+day.check_in:''}${day.check_out?' · Out: '+day.check_out:''}">
+        <span class="cal-day-num">${day.day}</span>
+        <span class="cal-status-dot" style="background:${statusColors[day.status]||'#94a3b8'}"></span>
+        ${day.work_hours > 0 ? `<span class="cal-hours">${day.work_hours}h</span>` : ''}
+      </div>`).join('')}
+  </div>`;
+  wrap.innerHTML = html;
+}
+
+// Payslips
+async function loadPayslips() {
+  const r = await API.get('/api/self/payslips');
+  const tbody = document.getElementById('payslipsBody');
+  if (!r.success || !r.data.length) { tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No payslips found.</td></tr>'; return; }
+  const sc = {draft:'secondary', processed:'info', paid:'success'};
+  tbody.innerHTML = r.data.map(p => `
+    <tr>
+      <td><b>${p.pay_period}</b></td>
+      <td>₹${(p.prorated_basic||0).toLocaleString('en-IN')}</td>
+      <td>₹${(p.gross_salary||0).toLocaleString('en-IN')}</td>
+      <td>₹${(p.total_deductions||0).toLocaleString('en-IN')}</td>
+      <td><b>₹${(p.net_salary||0).toLocaleString('en-IN')}</b></td>
+      <td><span class="badge badge-${sc[p.status]||'secondary'}">${p.status}</span></td>
+      <td>
+        <a href="/api/self/payslips/${p.id}/pdf" class="btn btn-sm btn-outline" target="_blank">
+          <i class="fa-solid fa-download"></i> PDF
+        </a>
+      </td>
+    </tr>`).join('');
+}
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = 'tab-' + btn.dataset.tab;
+    document.getElementById(tab).classList.add('active');
+    if (btn.dataset.tab === 'att-calendar') loadCalendar();
+    if (btn.dataset.tab === 'payslips') loadPayslips();
+  });
+});
+
+document.getElementById('calMonth').addEventListener('change', loadCalendar);
+
+loadProfile();
+loadSummary();
+</script>
+{% endblock %}

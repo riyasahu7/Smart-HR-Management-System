@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Documents{% endblock %}
+{% block page_title %}Document Management{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <div class="toolbar-left">
+    <input type="text" id="empSearch" class="search-input" placeholder="Employee ID or name…"/>
+  </div>
+  <div class="toolbar-right">
+    <button class="btn btn-primary" id="uploadBtn">
+      <i class="fa-solid fa-upload"></i> Upload Document
+    </button>
+  </div>
+</div>
+
+<!-- Document Types Legend -->
+<div class="doc-types-row" id="docTypesRow"></div>
+
+<!-- Documents Table -->
+<div class="card">
+  <div class="card-header">
+    <h3 id="docTableTitle">Documents</h3>
+    <span class="badge badge-info" id="docCount"></span>
+  </div>
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr><th>Document Type</th><th>File Name</th><th>Description</th><th>Size</th><th>Uploaded</th><th>Actions</th></tr>
+      </thead>
+      <tbody id="docsBody">
+        <tr><td colspan="6" class="table-empty">Search for an employee to view their documents.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-overlay" id="uploadModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-upload"></i> Upload Document</h3>
+      <button class="btn-icon" id="closeUpload"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Employee ID *</label>
+        <input type="text" id="uploadEmpId" placeholder="MongoDB Employee ID"/>
+      </div>
+      <div class="form-group">
+        <label>Document Type *</label>
+        <select id="uploadDocType" required>
+          <option value="">Select type</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="uploadDesc" placeholder="Optional description"/>
+      </div>
+      <div class="form-group">
+        <label>File * <small class="text-muted">(PDF, JPG, PNG, DOC, XLSX — max 10MB)</small></label>
+        <input type="file" id="uploadFile" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"/>
+      </div>
+      <div id="uploadProgress" style="display:none">
+        <div class="progress-bar-wrap"><div class="progress-bar" id="uploadBar" style="width:0%"></div></div>
+        <small id="uploadStatus">Uploading…</small>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelUpload">Cancel</button>
+      <button class="btn btn-primary" id="confirmUpload">
+        <i class="fa-solid fa-upload"></i> Upload
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm -->
+<div class="modal-overlay" id="deleteDocModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header"><h3><i class="fa-solid fa-triangle-exclamation text-red"></i> Delete Document</h3></div>
+    <div class="modal-body"><p>Are you sure you want to delete <strong id="deleteDocName"></strong>? This cannot be undone.</p></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelDeleteDoc">Cancel</button>
+      <button class="btn btn-danger" id="confirmDeleteDoc">Delete</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+let currentEmpId = null;
+let deleteTarget = { empId: null, docId: null };
+
+// Load document types
+API.get('/api/documents/types').then(r => {
+  if (!r.success) return;
+  const sel = document.getElementById('uploadDocType');
+  const row = document.getElementById('docTypesRow');
+  r.data.forEach(t => {
+    sel.innerHTML += `<option value="${t}">${t.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</option>`;
+  });
+  row.innerHTML = r.data.map(t =>
+    `<span class="doc-type-chip">${t.replace(/_/g,' ')}</span>`
+  ).join('');
+});
+
+// Employee search
+const user_role = user.role;
+if (user_role === 'employee') {
+  // Auto-load own docs
+  currentEmpId = user.employee_id;
+  loadDocs(currentEmpId);
+  document.getElementById('empSearch').closest('.toolbar-left').style.display = 'none';
+}
+
+let searchTimer;
+document.getElementById('empSearch').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    const v = document.getElementById('empSearch').value.trim();
+    if (v.length >= 3) { currentEmpId = v; loadDocs(v); }
+  }, 500);
+});
+
+async function loadDocs(empId) {
+  const r = await API.get(`/api/documents/${empId}`);
+  const tbody = document.getElementById('docsBody');
+  document.getElementById('docTableTitle').textContent = `Documents (${empId})`;
+  if (!r.success) { tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Employee not found or no documents.</td></tr>'; return; }
+  const docs = r.data.documents;
+  document.getElementById('docCount').textContent = docs.length + ' files';
+  if (!docs.length) { tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No documents uploaded yet.</td></tr>'; return; }
+
+  const icons = { pdf:'fa-file-pdf text-red', jpg:'fa-file-image text-blue', jpeg:'fa-file-image text-blue', png:'fa-file-image text-blue', doc:'fa-file-word', docx:'fa-file-word', xls:'fa-file-excel text-green', xlsx:'fa-file-excel text-green' };
+  tbody.innerHTML = docs.map(d => {
+    const ext = d.original_name.split('.').pop().toLowerCase();
+    const icon = icons[ext] || 'fa-file';
+    return `<tr>
+      <td><span class="badge badge-info">${(d.doc_type||'').replace(/_/g,' ')}</span></td>
+      <td><i class="fa-solid ${icon}"></i> ${d.original_name}</td>
+      <td>${d.description || '—'}</td>
+      <td>${d.size_kb} KB</td>
+      <td>${d.uploaded_at ? d.uploaded_at.slice(0,10) : '—'}</td>
+      <td>
+        <div class="action-btns">
+          <a href="${d.url}" class="btn-icon-sm text-blue" target="_blank" title="View/Download">
+            <i class="fa-solid fa-download"></i>
+          </a>
+          <button class="btn-icon-sm text-red" onclick="openDeleteDoc('${empId}','${d.doc_id}','${d.original_name}')" title="Delete">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// Upload modal
+document.getElementById('uploadBtn').onclick = () => {
+  if (currentEmpId) document.getElementById('uploadEmpId').value = currentEmpId;
+  document.getElementById('uploadModal').style.display = 'flex';
+};
+document.getElementById('closeUpload').onclick = () => document.getElementById('uploadModal').style.display = 'none';
+document.getElementById('cancelUpload').onclick = () => document.getElementById('uploadModal').style.display = 'none';
+
+document.getElementById('confirmUpload').addEventListener('click', async () => {
+  const empId   = document.getElementById('uploadEmpId').value.trim();
+  const docType = document.getElementById('uploadDocType').value;
+  const desc    = document.getElementById('uploadDesc').value;
+  const file    = document.getElementById('uploadFile').files[0];
+  if (!empId || !docType || !file) { window.showFlash('Employee ID, type, and file are required.', 'warning'); return; }
+
+  const fd = new FormData();
+  fd.append('document', file);
+  fd.append('doc_type', docType);
+  fd.append('description', desc);
+
+  document.getElementById('uploadProgress').style.display = 'block';
+  document.getElementById('uploadBar').style.width = '60%';
+  document.getElementById('uploadStatus').textContent = 'Uploading…';
+
+  const token = localStorage.getItem('access_token');
+  const res = await fetch(`/api/documents/${empId}/upload`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd
+  });
+  const data = await res.json();
+
+  document.getElementById('uploadProgress').style.display = 'none';
+  document.getElementById('uploadModal').style.display = 'none';
+  window.showFlash(data.success ? 'Document uploaded!' : data.message, data.success ? 'success' : 'error');
+  if (data.success) { currentEmpId = empId; loadDocs(empId); }
+});
+
+// Delete
+function openDeleteDoc(empId, docId, name) {
+  deleteTarget = { empId, docId };
+  document.getElementById('deleteDocName').textContent = name;
+  document.getElementById('deleteDocModal').style.display = 'flex';
+}
+document.getElementById('cancelDeleteDoc').onclick = () => document.getElementById('deleteDocModal').style.display = 'none';
+document.getElementById('confirmDeleteDoc').addEventListener('click', async () => {
+  const r = await API.del(`/api/documents/${deleteTarget.empId}/${deleteTarget.docId}`);
+  document.getElementById('deleteDocModal').style.display = 'none';
+  window.showFlash(r.success ? 'Document deleted.' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadDocs(deleteTarget.empId);
+});
+</script>
+{% endblock %}

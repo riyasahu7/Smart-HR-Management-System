@@ -264,3 +264,80 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 })();
+
+
+/* ── Notification Bell ────────────────────────────────────── */
+(function initNotifications() {
+  const bell     = document.getElementById('notifBell');
+  const badge    = document.getElementById('notifBadge');
+  const list     = document.getElementById('notifList');
+  const markAll  = document.getElementById('markAllRead');
+  if (!bell) return;
+
+  async function fetchCount() {
+    const r = await window.hrAPI.get('/api/notifications/unread-count');
+    if (!r.success) return;
+    const count = r.data.unread_count;
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  async function fetchNotifications() {
+    const r = await window.hrAPI.get('/api/notifications?limit=15');
+    if (!r.success) return;
+    const notifs = r.data.notifications;
+    if (!notifs.length) {
+      list.innerHTML = '<p class="empty-state">No notifications.</p>';
+      return;
+    }
+    const timeAgo = (iso) => {
+      const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+      if (diff < 60) return `${diff}s ago`;
+      if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+      return `${Math.floor(diff/86400)}d ago`;
+    };
+    list.innerHTML = notifs.map(n => `
+      <div class="notif-item ${n.is_read ? '' : 'unread'}" onclick="markNotifRead('${n.id}', this, '${n.link||''}')">
+        <div class="notif-item-title">${n.title}</div>
+        <div class="notif-item-msg">${n.message}</div>
+        <div class="notif-item-time">${n.created_at ? timeAgo(n.created_at) : ''}</div>
+      </div>
+    `).join('');
+  }
+
+  bell.addEventListener('click', (e) => {
+    e.stopPropagation();
+    bell.classList.toggle('open');
+    if (bell.classList.contains('open')) fetchNotifications();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!bell.contains(e.target)) bell.classList.remove('open');
+  });
+
+  if (markAll) {
+    markAll.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await window.hrAPI.put('/api/notifications/read-all', {});
+      badge.style.display = 'none';
+      fetchNotifications();
+    });
+  }
+
+  // Expose globally for inline onclick
+  window.markNotifRead = async (id, el, link) => {
+    await window.hrAPI.put(`/api/notifications/${id}/read`, {});
+    el.classList.remove('unread');
+    fetchCount();
+    if (link) window.location.href = link;
+  };
+
+  // Poll every 30s
+  fetchCount();
+  setInterval(fetchCount, 30000);
+})();

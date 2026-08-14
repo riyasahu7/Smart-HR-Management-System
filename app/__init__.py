@@ -58,7 +58,7 @@ def create_app(config_name="default"):
     def internal_error(e):
         return jsonify({"success": False, "message": "Internal server error.", "error": str(e)}), 500
 
-    # Register blueprints
+    # Register blueprints — core
     from app.routes.auth_routes import auth_bp
     from app.routes.employee_routes import employee_bp
     from app.routes.attendance_routes import attendance_bp
@@ -69,14 +69,24 @@ def create_app(config_name="default"):
     from app.routes.report_routes import report_bp
     from app.routes.dashboard_routes import dashboard_bp
 
-    app.register_blueprint(auth_bp, url_prefix="/api/auth")
-    app.register_blueprint(employee_bp, url_prefix="/api/employees")
-    app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
-    app.register_blueprint(leave_bp, url_prefix="/api/leave")
-    app.register_blueprint(payroll_bp, url_prefix="/api/payroll")
-    app.register_blueprint(performance_bp, url_prefix="/api/performance")
-    app.register_blueprint(ai_bp, url_prefix="/api/ai")
-    app.register_blueprint(report_bp, url_prefix="/api/reports")
-    app.register_blueprint(dashboard_bp, url_prefix="/")
+    # Register blueprints — new features
+    from app.routes.self_service_routes import self_service_bp
+    from app.routes.notification_routes import notification_bp
+    from app.routes.document_routes import document_bp
+    from app.routes.shift_routes import shift_bp
+
+    app.register_blueprint(auth_bp,         url_prefix="/api/auth")
+    app.register_blueprint(employee_bp,     url_prefix="/api/employees")
+    app.register_blueprint(attendance_bp,   url_prefix="/api/attendance")
+    app.register_blueprint(leave_bp,        url_prefix="/api/leave")
+    app.register_blueprint(payroll_bp,      url_prefix="/api/payroll")
+    app.register_blueprint(performance_bp,  url_prefix="/api/performance")
+    app.register_blueprint(ai_bp,           url_prefix="/api/ai")
+    app.register_blueprint(report_bp,       url_prefix="/api/reports")
+    app.register_blueprint(self_service_bp, url_prefix="/api/self")
+    app.register_blueprint(notification_bp, url_prefix="/api/notifications")
+    app.register_blueprint(document_bp,     url_prefix="/api/documents")
+    app.register_blueprint(shift_bp,        url_prefix="/api/shifts")
+    app.register_blueprint(dashboard_bp,    url_prefix="/")
 
     return app

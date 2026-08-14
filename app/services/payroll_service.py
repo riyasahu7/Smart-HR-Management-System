@@ -140,7 +140,7 @@ def process_payroll(payroll_id, processor_id):
 
 
 def mark_paid(payroll_id, payment_mode="bank_transfer"):
-    """Mark payroll as paid."""
+    """Mark payroll as paid and send email notification."""
     now = datetime.utcnow()
     result = _col().update_one(
         {"_id": ObjectId(payroll_id), "status": "processed"},
@@ -150,6 +150,32 @@ def mark_paid(payroll_id, payment_mode="bank_transfer"):
     if result.matched_count == 0:
         return None, "Payroll not found or not in processed state."
     doc = _col().find_one({"_id": ObjectId(payroll_id)})
+
+    # Email + in-app notification
+    try:
+        from app.models.employee_model import EmployeeModel
+        from app.services.notification_service import notify_payslip, create_notification
+        emp = _emp_col().find_one({"_id": ObjectId(doc["employee_id"])})
+        if emp and emp.get("email"):
+            notify_payslip(
+                employee_email=emp["email"],
+                employee_name=emp.get("full_name", ""),
+                month=doc.get("month"),
+                year=doc.get("year"),
+                gross=doc.get("gross_salary", 0),
+                net=doc.get("net_salary", 0),
+                pay_period=doc.get("pay_period", ""),
+            )
+        create_notification(
+            recipient_id=doc["employee_id"],
+            title="Payslip Available",
+            message=f"Your payslip for {doc.get('pay_period','')} is ready. Net: ₹{doc.get('net_salary',0):,.0f}",
+            notif_type="payroll_processed",
+            link="/payroll",
+        )
+    except Exception:
+        pass
+
     return PayrollModel.to_dict(doc), None
 
 

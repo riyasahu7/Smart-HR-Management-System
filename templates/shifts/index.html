@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% block title %}Shifts{% endblock %}
+{% block page_title %}Shift & Schedule Management{% endblock %}
+
+{% block content %}
+<div class="tabs-bar">
+  <button class="tab-btn active" data-tab="shifts">Shift Definitions</button>
+  <button class="tab-btn" data-tab="schedules">Employee Schedules</button>
+  <button class="tab-btn" data-tab="overtime">Overtime Report</button>
+</div>
+
+<!-- SHIFTS TAB -->
+<div class="tab-pane active" id="tab-shifts">
+  <div class="page-toolbar">
+    <div class="toolbar-left"></div>
+    <div class="toolbar-right">
+      <button class="btn btn-primary" id="newShiftBtn"><i class="fa-solid fa-plus"></i> New Shift</button>
+    </div>
+  </div>
+  <div class="shifts-grid" id="shiftsGrid">
+    <div class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+  </div>
+</div>
+
+<!-- SCHEDULES TAB -->
+<div class="tab-pane" id="tab-schedules">
+  <div class="page-toolbar">
+    <div class="toolbar-left">
+      <select id="schedDeptFilter" class="filter-select">
+        <option value="">All Departments</option>
+        <option>Engineering</option><option>Human Resources</option><option>Finance</option>
+        <option>Marketing</option><option>Sales</option><option>Operations</option>
+      </select>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn btn-primary" id="assignShiftBtn"><i class="fa-solid fa-plus"></i> Assign Shift</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr><th>Employee</th><th>Department</th><th>Shift</th><th>Hours</th><th>Start Time</th><th>End Time</th><th>From</th><th>Actions</th></tr></thead>
+        <tbody id="schedulesBody"><tr><td colspan="8" class="table-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="table-pagination" id="schedulesPagination"></div>
+  </div>
+</div>
+
+<!-- OVERTIME TAB -->
+<div class="tab-pane" id="tab-overtime">
+  <div class="card">
+    <div class="card-header"><h3>Overtime Calculator</h3></div>
+    <div class="form-section">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Employee ID</label>
+          <input type="text" id="otEmpId" placeholder="MongoDB Employee ID"/>
+        </div>
+        <div class="form-group">
+          <label>Month</label>
+          <input type="month" id="otMonth" class="filter-select"/>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="calcOtBtn">
+        <i class="fa-solid fa-calculator"></i> Calculate Overtime
+      </button>
+    </div>
+    <div id="otResult" style="padding:1rem"></div>
+  </div>
+</div>
+
+<!-- New Shift Modal -->
+<div class="modal-overlay" id="shiftModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="shiftModalTitle"><i class="fa-solid fa-business-time"></i> New Shift</h3>
+      <button class="btn-icon" id="closeShiftModal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="shiftIdField"/>
+      <div class="form-grid">
+        <div class="form-group full-width"><label>Shift Name *</label><input type="text" id="shiftName" placeholder="e.g. Morning Shift"/></div>
+        <div class="form-group"><label>Start Time *</label><input type="time" id="shiftStart"/></div>
+        <div class="form-group"><label>End Time *</label><input type="time" id="shiftEnd"/></div>
+        <div class="form-group"><label>Break (minutes)</label><input type="number" id="shiftBreak" value="30" min="0"/></div>
+        <div class="form-group"><label>Color</label><input type="color" id="shiftColor" value="#3b82f6"/></div>
+        <div class="form-group full-width"><label>Description</label><input type="text" id="shiftDesc"/></div>
+      </div>
+      <div class="form-group">
+        <label>Working Days</label>
+        <div class="days-selector" id="daysSelector">
+          <label class="day-chip active" data-day="Mon"><input type="checkbox" checked hidden> Mon</label>
+          <label class="day-chip active" data-day="Tue"><input type="checkbox" checked hidden> Tue</label>
+          <label class="day-chip active" data-day="Wed"><input type="checkbox" checked hidden> Wed</label>
+          <label class="day-chip active" data-day="Thu"><input type="checkbox" checked hidden> Thu</label>
+          <label class="day-chip active" data-day="Fri"><input type="checkbox" checked hidden> Fri</label>
+          <label class="day-chip" data-day="Sat"><input type="checkbox" hidden> Sat</label>
+          <label class="day-chip" data-day="Sun"><input type="checkbox" hidden> Sun</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelShiftModal">Cancel</button>
+      <button class="btn btn-primary" id="saveShift">Save Shift</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Shift Modal -->
+<div class="modal-overlay" id="assignModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-user-clock"></i> Assign Shift</h3>
+      <button class="btn-icon" id="closeAssignModal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full-width"><label>Employee ID *</label><input type="text" id="assignEmpId" placeholder="MongoDB Employee ID"/></div>
+        <div class="form-group full-width">
+          <label>Shift *</label>
+          <select id="assignShiftSel"><option value="">Select shift…</option></select>
+        </div>
+        <div class="form-group"><label>Effective From *</label><input type="date" id="assignFrom"/></div>
+        <div class="form-group"><label>Effective To (optional)</label><input type="date" id="assignTo"/></div>
+        <div class="form-group full-width"><label>Notes</label><input type="text" id="assignNotes"/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancelAssignModal">Cancel</button>
+      <button class="btn btn-primary" id="confirmAssign">Assign</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.hrAPI;
+const now = new Date();
+document.getElementById('otMonth').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+// Day chips
+document.querySelectorAll('.day-chip').forEach(chip => {
+  chip.addEventListener('click', () => chip.classList.toggle('active'));
+});
+
+function getSelectedDays() {
+  return [...document.querySelectorAll('.day-chip.active')].map(c => c.dataset.day);
+}
+
+// SHIFTS
+async function loadShifts() {
+  const r = await API.get('/api/shifts');
+  const grid = document.getElementById('shiftsGrid');
+  if (!r.success || !r.data.shifts.length) {
+    grid.innerHTML = '<p class="empty-state">No shifts defined. Create one!</p>'; return;
+  }
+  grid.innerHTML = r.data.shifts.map(s => `
+    <div class="shift-card" style="border-top:4px solid ${s.color}">
+      <div class="shift-card-header">
+        <h4>${s.name}</h4>
+        <span class="badge badge-${s.is_active?'success':'secondary'}">${s.is_active?'Active':'Inactive'}</span>
+      </div>
+      <div class="shift-times">
+        <span><i class="fa-solid fa-play"></i> ${s.start_time}</span>
+        <span>→</span>
+        <span><i class="fa-solid fa-stop"></i> ${s.end_time}</span>
+      </div>
+      <div class="shift-meta">
+        <span><i class="fa-solid fa-clock"></i> ${s.work_hours}h/day</span>
+        <span><i class="fa-solid fa-mug-hot"></i> ${s.break_minutes}min break</span>
+      </div>
+      <div class="shift-days">${(s.days||[]).map(d=>`<span class="day-chip-sm active">${d}</span>`).join('')}</div>
+      <div class="shift-desc">${s.description||''}</div>
+      <div class="shift-actions">
+        <button class="btn btn-sm btn-outline" onclick="editShift('${s.id}','${s.name}','${s.start_time}','${s.end_time}',${s.break_minutes},'${s.color}','${s.description||''}')">
+          <i class="fa-solid fa-pen"></i> Edit
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="deleteShift('${s.id}')">
+          <i class="fa-solid fa-ban"></i> Deactivate
+        </button>
+      </div>
+    </div>`).join('');
+
+  // Populate assign dropdown
+  const sel = document.getElementById('assignShiftSel');
+  sel.innerHTML = '<option value="">Select shift…</option>';
+  r.data.shifts.filter(s=>s.is_active).forEach(s => {
+    sel.innerHTML += `<option value="${s.id}">${s.name} (${s.start_time}–${s.end_time})</option>`;
+  });
+}
+
+// New shift modal
+document.getElementById('newShiftBtn').onclick = () => {
+  document.getElementById('shiftModalTitle').innerHTML = '<i class="fa-solid fa-business-time"></i> New Shift';
+  document.getElementById('shiftIdField').value = '';
+  ['shiftName','shiftDesc'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('shiftStart').value = '09:00';
+  document.getElementById('shiftEnd').value = '18:00';
+  document.getElementById('shiftBreak').value = 30;
+  document.getElementById('shiftColor').value = '#3b82f6';
+  document.getElementById('shiftModal').style.display = 'flex';
+};
+document.getElementById('closeShiftModal').onclick = () => document.getElementById('shiftModal').style.display = 'none';
+document.getElementById('cancelShiftModal').onclick = () => document.getElementById('shiftModal').style.display = 'none';
+
+function editShift(id, name, start, end, brk, color, desc) {
+  document.getElementById('shiftModalTitle').innerHTML = '<i class="fa-solid fa-pen"></i> Edit Shift';
+  document.getElementById('shiftIdField').value = id;
+  document.getElementById('shiftName').value  = name;
+  document.getElementById('shiftStart').value = start;
+  document.getElementById('shiftEnd').value   = end;
+  document.getElementById('shiftBreak').value = brk;
+  document.getElementById('shiftColor').value = color;
+  document.getElementById('shiftDesc').value  = desc;
+  document.getElementById('shiftModal').style.display = 'flex';
+}
+
+document.getElementById('saveShift').addEventListener('click', async () => {
+  const id = document.getElementById('shiftIdField').value;
+  const payload = {
+    name: document.getElementById('shiftName').value,
+    start_time: document.getElementById('shiftStart').value,
+    end_time: document.getElementById('shiftEnd').value,
+    break_minutes: parseInt(document.getElementById('shiftBreak').value),
+    color: document.getElementById('shiftColor').value,
+    description: document.getElementById('shiftDesc').value,
+    days: getSelectedDays(),
+  };
+  const r = id ? await API.put(`/api/shifts/${id}`, payload) : await API.post('/api/shifts', payload);
+  document.getElementById('shiftModal').style.display = 'none';
+  window.showFlash(r.success ? (id ? 'Shift updated!' : 'Shift created!') : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadShifts();
+});
+
+async function deleteShift(id) {
+  if (!confirm('Deactivate this shift?')) return;
+  const r = await API.del(`/api/shifts/${id}`);
+  window.showFlash(r.success ? 'Shift deactivated.' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadShifts();
+}
+
+// SCHEDULES
+async function loadSchedules(page=1) {
+  const dept = document.getElementById('schedDeptFilter').value;
+  let url = `/api/shifts/schedules?page=${page}&per_page=20`;
+  if (dept) url += `&department=${encodeURIComponent(dept)}`;
+  const r = await API.get(url);
+  const tbody = document.getElementById('schedulesBody');
+  if (!r.success || !r.data.schedules.length) { tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No schedules found.</td></tr>'; return; }
+  tbody.innerHTML = r.data.schedules.map(s => `
+    <tr>
+      <td>${s.employee_name||s.employee_id}</td>
+      <td>${s.department||'—'}</td>
+      <td><span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:50%;margin-right:4px"></span>${s.shift_name}</td>
+      <td>${s.work_hours}h</td>
+      <td>${s.shift_start}</td>
+      <td>${s.shift_end}</td>
+      <td>${s.effective_from ? s.effective_from.slice(0,10) : '—'}</td>
+      <td>
+        <button class="btn-icon-sm text-red" onclick="removeSchedule('${s.id}')">
+          <i class="fa-solid fa-ban"></i>
+        </button>
+      </td>
+    </tr>`).join('');
+  renderPagination('schedulesPagination', r.data.pagination, loadSchedules);
+}
+
+async function removeSchedule(id) {
+  if (!confirm('Remove this schedule?')) return;
+  const r = await API.del(`/api/shifts/schedules/${id}`);
+  window.showFlash(r.success ? 'Schedule removed.' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadSchedules();
+}
+
+document.getElementById('assignShiftBtn').onclick = () => document.getElementById('assignModal').style.display = 'flex';
+document.getElementById('closeAssignModal').onclick = () => document.getElementById('assignModal').style.display = 'none';
+document.getElementById('cancelAssignModal').onclick = () => document.getElementById('assignModal').style.display = 'none';
+
+document.getElementById('confirmAssign').addEventListener('click', async () => {
+  const payload = {
+    employee_id: document.getElementById('assignEmpId').value.trim(),
+    shift_id:    document.getElementById('assignShiftSel').value,
+    effective_from: document.getElementById('assignFrom').value,
+    effective_to:   document.getElementById('assignTo').value || null,
+    notes: document.getElementById('assignNotes').value,
+  };
+  const r = await API.post('/api/shifts/schedules/assign', payload);
+  document.getElementById('assignModal').style.display = 'none';
+  window.showFlash(r.success ? 'Shift assigned!' : r.message, r.success ? 'success' : 'error');
+  if (r.success) loadSchedules();
+});
+
+document.getElementById('schedDeptFilter').addEventListener('change', loadSchedules);
+
+// OVERTIME
+document.getElementById('calcOtBtn').addEventListener('click', async () => {
+  const empId = document.getElementById('otEmpId').value.trim();
+  const [yr, mo] = document.getElementById('otMonth').value.split('-');
+  if (!empId) { window.showFlash('Enter Employee ID.', 'warning'); return; }
+  const r = await API.get(`/api/shifts/overtime/${empId}?year=${yr}&month=${parseInt(mo)}`);
+  const result = document.getElementById('otResult');
+  if (!r.success) { result.innerHTML = `<p class="empty-state">${r.message}</p>`; return; }
+  const d = r.data;
+  const color = d.overtime_hours > 0 ? '#10b981' : '#94a3b8';
+  result.innerHTML = `
+    <div class="stat-cards mini" style="margin-top:0">
+      <div class="stat-card teal"><div class="stat-icon"><i class="fa-solid fa-clock"></i></div><div class="stat-info"><span class="stat-value">${d.total_worked_hours}h</span><span class="stat-label">Total Worked</span></div></div>
+      <div class="stat-card blue"><div class="stat-icon"><i class="fa-solid fa-calendar-check"></i></div><div class="stat-info"><span class="stat-value">${d.expected_hours}h</span><span class="stat-label">Expected</span></div></div>
+      <div class="stat-card ${d.overtime_hours > 0 ? 'green' : 'yellow'}"><div class="stat-icon"><i class="fa-solid fa-bolt"></i></div><div class="stat-info"><span class="stat-value">${d.overtime_hours}h</span><span class="stat-label">Overtime</span></div></div>
+      <div class="stat-card purple"><div class="stat-icon"><i class="fa-solid fa-calendar-day"></i></div><div class="stat-info"><span class="stat-value">${d.working_days}</span><span class="stat-label">Working Days</span></div></div>
+    </div>`;
+});
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'schedules') loadSchedules();
+  });
+});
+
+loadShifts();
+</script>
+{% endblock %}

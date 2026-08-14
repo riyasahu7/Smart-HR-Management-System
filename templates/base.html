@@ -40,6 +40,15 @@
       <a href="/performance"      class="nav-item" data-page="performance">
         <i class="fa-solid fa-chart-line"></i><span>Performance</span>
       </a>
+      <a href="/shifts"           class="nav-item" data-page="shifts">
+        <i class="fa-solid fa-business-time"></i><span>Shifts</span>
+      </a>
+      <a href="/documents"        class="nav-item" data-page="documents">
+        <i class="fa-solid fa-folder-open"></i><span>Documents</span>
+      </a>
+      <a href="/self-service"     class="nav-item" data-page="self-service">
+        <i class="fa-solid fa-id-card"></i><span>My Portal</span>
+      </a>
       <a href="/reports"          class="nav-item" data-page="reports">
         <i class="fa-solid fa-file-chart-column"></i><span>Reports</span>
       </a>
@@ -64,6 +73,17 @@
         <button class="btn-icon topbar-ai" id="openAiChat" title="HR Assistant">
           <i class="fa-solid fa-robot"></i>
         </button>
+        <div class="notif-bell" id="notifBell" title="Notifications">
+          <i class="fa-solid fa-bell"></i>
+          <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+          <div class="notif-dropdown" id="notifDropdown">
+            <div class="notif-header">
+              <span>Notifications</span>
+              <button class="btn-sm btn-outline" id="markAllRead">Mark all read</button>
+            </div>
+            <div id="notifList"><p class="empty-state">No notifications.</p></div>
+          </div>
+        </div>
         <div class="topbar-user" id="topbarUser">
           <div class="avatar" id="userAvatar">U</div>
           <div class="user-info">

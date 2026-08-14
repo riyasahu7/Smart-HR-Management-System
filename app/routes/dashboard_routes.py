@@ -65,3 +65,18 @@ def performance():
 @dashboard_bp.route("/reports")
 def reports():
     return render_template("reports/index.html")
+
+
+@dashboard_bp.route("/self-service")
+def self_service():
+    return render_template("self_service/index.html")
+
+
+@dashboard_bp.route("/documents")
+def documents():
+    return render_template("documents/index.html")
+
+
+@dashboard_bp.route("/shifts")
+def shifts():
+    return render_template("shifts/index.html")
