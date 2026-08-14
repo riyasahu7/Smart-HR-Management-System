@@ -1,17 +1,24 @@
 """
 Vercel serverless entry point — with full error trapping.
+
+Vercel routes ALL requests (including /static/*) here via vercel.json.
+Flask handles static files itself using the absolute static_folder set
+in app/__init__.py (works because static/ is bundled via includeFiles).
 """
 import sys
 import os
 import traceback
 
-# Absolute project root
+# Absolute project root — works regardless of Vercel's working directory
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-# Minimal Flask app for error reporting — always works
+# ── Fallback error app — always importable, shows boot errors in browser ──────
 from flask import Flask, jsonify
+
 _err_app = Flask(__name__)
+_BOOT_ERROR = None
+
 
 @_err_app.route("/", defaults={"path": ""})
 @_err_app.route("/<path:path>")
@@ -20,23 +27,23 @@ def catch_all(path):
         "error": "App failed to start",
         "detail": _BOOT_ERROR,
         "root": ROOT,
+        "python": sys.version,
         "sys_path": sys.path[:5],
     }), 500
 
-_BOOT_ERROR = None
 
+# ── Real app boot ──────────────────────────────────────────────────────────────
 try:
-    # Load .env (local dev only — Vercel uses dashboard env vars)
+    # Load .env for local dev — Vercel injects env vars from the dashboard
     try:
         from dotenv import load_dotenv
         load_dotenv(os.path.join(ROOT, ".env"))
     except Exception:
         pass
 
-    # Import and create the real app
     from app import create_app
     app = create_app("production")
 
 except Exception:
     _BOOT_ERROR = traceback.format_exc()
-    app = _err_app  # Serve error details so we can see what broke
+    app = _err_app
